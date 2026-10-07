@@ -154,8 +154,9 @@ desde el `correlation_id` afectado.
 | Escaneo de secretos | Ningún secreto en el diff ni en el historial nuevo (sección 7.1) | Sí |
 | Auditoría de dependencias | CVEs por encima del umbral (sección 7.2) | Sí (umbral → `TODO(verify)`) |
 
-El detalle de los flujos vive en `.github/workflows/` (Fase 2) → `TODO(verify)` (nombres
-exactos de jobs).
+El detalle de los flujos vive en `.github/workflows/` (`ci.yml` y `terraform.yml`,
+creados en Fase 1); los checks de secretos y de auditoría de dependencias de esta tabla
+**aún no están** en ellos → `TODO(verify)` (añadir en su fase y nombres exactos de jobs).
 
 ## 9. Checklist antes de publicar un slice
 

@@ -21,6 +21,21 @@ AWS** y **nunca importa** `slices.*` ni `adapters.*` (lo verifica import-linter 
 | `contracts/` | Modelos Pydantic de mensajes/eventos entre slices (versionados) | Implementaciones, lógica de caso de uso |
 | `ports/` | `LLMPort`, `ClockPort`, `EventBusPort` (Protocol/ABC) | Adapters concretos (viven en `adapters/`) |
 
+## Estado (Fase 2: implementado)
+
+| Paquete | Módulos | Tests |
+|---|---|---|
+| `errors/` | `base.py`: `AppError` (+ `code`/`http_status`), `ValidationError`, `TenantError`, `TenantNotFoundError`, `ContextNotSetError`, `ToolError`, `ToolTimeoutError` | `tests/unit/test_shared_errors.py` |
+| `context/` | `tenant.py`: `TenantContext` (frozen) + `set_context`/`reset_context`/`get_context`/`current_context`/`bind_context` | `tests/unit/test_shared_context.py` |
+| `config/` | `settings.py`: `Settings` (`CHATBOT_ENVIRONMENT`, `CHATBOT_LOG_LEVEL`) + `load_settings` | `tests/unit/test_shared_config.py` |
+| `logging/` | `formatter.py` (JSON + redacción de secretos) + `logger.py` (`configure_logging`, `get_logger`) | `tests/unit/test_shared_logging.py` |
+| `contracts/` | `types.py` (`Channel`, `Intent`, `AgentName`) + `messages.py` (`InboundMessage`, `OutboundMessage`, `RoutedTurn`, `CustomerContext`; `schema_version`, `frozen`, `extra=forbid`) | `tests/unit/test_shared_contracts.py` |
+| `ports/` | `base.py`: `ClockPort`, `LLMPort`, `EventBusPort` (`runtime_checkable`) | `tests/unit/test_shared_ports.py` |
+
+Errores propios de un slice: subclasificar `AppError` en el slice (p. ej.
+`InvalidSignatureError` en `conversation_gateway`). Contratos nuevos: añadir el modelo a
+`messages.py` (o `types.py`), test de round-trip y registro aquí.
+
 ## Convenciones
 
 - Todo lo público con docstring en español (qué/por qué/Args/Returns/Raises).

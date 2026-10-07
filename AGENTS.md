@@ -279,10 +279,10 @@ Un trabajo está terminado cuando:
 
 | Fase | Alcance | Estado |
 |---|---|---|
-| 1 | Árbol de carpetas, AGENTS.md, docs de arquitectura, ADRs, calidad y CI mínimo | **en curso** |
-| 2 | Kernel `shared`, ports, config, logging estructurado, tooling | pendiente |
+| 1 | Árbol de carpetas, AGENTS.md, docs de arquitectura, ADRs, calidad y CI mínimo | **completada** |
+| 2 | Kernel `shared`, ports, config, logging estructurado, tooling | **completada** |
 | 3 | Módulos Terraform base (state, red mínima, DynamoDB, S3, Aurora, IAM) | pendiente |
-| 4 | Slices: `conversation_gateway`, `supervisor`, `customer_context` | pendiente |
+| 4 | Slices: `conversation_gateway`, `supervisor`, `customer_context` + primeros adapters transversales (`src/adapters/`) | pendiente |
 | 5 | Slices: `tenant_prompts`, `knowledge_rag` + guardrails | pendiente |
 | 6 | Slices: `appointments`, `orders` | pendiente |
 | 7 | `sentiment_handoff`, `abuse_protection`, `retention_archiving`, `media_handling` (cierra ADR 0007) | pendiente |
