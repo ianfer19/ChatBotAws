@@ -1,0 +1,32 @@
+flowchart TD
+    EV["Evento externo<br/>webhook Meta, cron, invocación directa"]
+
+    subgraph slice["slice orders (ejemplo)"]
+        H["handler/<br/>composition root: compone adaptadores<br>y casos de uso"]
+        UC["application/<br/>casos de uso + puertos de entrada"]
+        INF["infrastructure/<br/>adapters concretos del slice"]
+    end
+
+    ENT["domain/<br/>entidades y reglas de negocio<br/>solo stdlib, pydantic y shared"]
+    PLAT["src/adapters/<br/>bedrock, agentcore, dynamodb,<br/>aurora, s3, comprehend, legacy_backend"]
+    SH["src/shared/<br/>errors, logging, config, context,<br/>contracts, ports (LLMPort, ClockPort, EventBusPort)"]
+    OTHER["otro slice (ej. supervisor)<br/>nunca se importa"]
+
+    EV --> H
+
+    H -->|"permitido 1"| UC
+    H -->|"permitido 2"| INF
+    H -->|"adapta servicios AWS"| PLAT
+    UC -->|"permitido 3"| ENT
+    INF -->|"permitido 4: infrastructure -> domain"| ENT
+    UC -->|"errores y contratos"| SH
+    INF -->|"errores y contratos"| SH
+    PLAT -->|"implementa los ports de shared"| SH
+    ENT -->|"permitido: stdlib / pydantic / shared"| SH
+
+    ENT -.->|"PROHIBIDO: el dominio no importa infraestructura"| INF
+    ENT -.->|"PROHIBIDO: el dominio no importa handlers ni AWS"| H
+    UC -.->|"PROHIBIDO: application no ve infraestructura"| INF
+    INF -.->|"PROHIBIDO: los adapters no dirigen casos de uso"| UC
+    H -.->|"PROHIBIDO: el handler no importa otros slices"| OTHER
+    OTHER -.->|"PROHIBIDO: slices aislados; hablan por shared/contracts"| H

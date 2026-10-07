@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  quality:
+    name: lint, tipos, tests y dependencias
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar herramientas
+        run: pip install -e ".[dev]"
+
+      - name: Ruff (lint)
+        run: ruff check src tests
+
+      - name: Ruff (formato)
+        run: ruff format --check src tests
+
+      - name: mypy (tipos)
+        run: mypy
+
+      - name: pytest (unit + estructura)
+        run: pytest
+
+      - name: import-linter (regla de dependencia)
+        run: lint-imports

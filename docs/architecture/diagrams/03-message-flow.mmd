@@ -1,0 +1,73 @@
+sequenceDiagram
+    autonumber
+    actor C as Cliente final
+    participant M as Meta (WhatsApp / Instagram / Messenger)
+    participant API as API Gateway
+    participant G as conversation_gateway
+    participant Q as SQS
+    participant S as supervisor (LangGraph)
+    participant CTX as customer_context
+    participant T as tools via AgentCore Gateway
+    participant RAG as knowledge_rag
+    participant L as Bedrock + Guardrails
+    participant H as Agente humano
+    participant S3 as S3 (archivo y media)
+    participant CW as CloudWatch
+
+    rect rgb(240, 240, 240)
+        Note over M,G: Verificación del webhook Meta (una sola vez por entorno)
+        M->>API: GET con hub.challenge
+        API->>G: enrutado al handler
+        G-->>API: devuelve hub.challenge
+        API-->>M: 200 con el challenge
+    end
+
+    M->>API: POST de mensaje firmado con X-Hub-Signature-256
+    API->>G: enrutado al handler
+    alt firma válida
+        G->>G: resuelve tenant_id desde el mapeo de canal replicado (D5) y genera correlation_id
+        G->>Q: encola mensaje con tenant_id y correlation_id
+    else firma inválida
+        G-->>API: 403 y log del intento
+    end
+
+    Q->>S: el supervisor consume el mensaje
+    S->>S: abuse_protection valida límites del cliente y del comercio
+    Note over S: arista condicional de clasificación de intención
+
+    alt intención greeting / smalltalk
+        S->>S: ruta propia del supervisor, sin enrutar al agente de ventas
+        S->>API: respuesta neutral (Buenas, bienvenido a {comercio}, ¿en qué te ayudo?)
+        API->>M: send
+        M->>C: respuesta
+    else caso comercial
+        S->>CTX: tool get_customer_context
+        CTX-->>S: contexto del cliente (tenant_id, preferencias, historial previo)
+        S->>S: historial de la conversación con ventana controlada y resumen
+        S->>T: tool call con schema, validación, autorización por tenant, timeout e idempotencia
+        T->>T: API HTTP del backend legacy
+        T-->>S: resultado (el LLM nunca accede directo a la base de datos)
+        S->>RAG: recuperar chunks (WHERE tenant_id)
+        RAG-->>S: chunks con embedding
+        S->>L: respuesta candidata (LLMPort + prompt versionado del tenant)
+        Note over L: ApplyGuardrail con grounding_source, query y guard_content<br/>umbrales de grounding/relevance entre 0 y 0.99
+        alt guardrail aprueba
+            L-->>S: respuesta final
+        else guardrail bloquea
+            L-->>S: respuesta de fallback
+            L-->>CW: log JSON de bloqueo con correlation_id y tenant_id
+        end
+        S->>S: Amazon Comprehend evalúa el sentimiento del último mensaje del cliente
+        alt sentimiento negativo o pide una persona
+            S->>H: handoff con resumen, historial y correlation_id
+            H->>API: respuesta del agente humano
+            API->>M: send
+            M->>C: respuesta
+        else sentimiento neutro
+            S->>API: respuesta final
+            API->>M: send
+            M->>C: respuesta
+        end
+        S->>S3: archiva conversación JSONL y media bajo el prefijo tenant_id
+        S->>CW: log JSON de turno con correlation_id y tenant_id
+    end

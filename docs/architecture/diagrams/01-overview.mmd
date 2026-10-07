@@ -1,0 +1,69 @@
+flowchart TD
+    subgraph channels["Canales Meta"]
+        WA["WhatsApp"]
+        IG["Instagram"]
+        MS["Messenger"]
+    end
+
+    subgraph edge["Ingreso y encolado"]
+        APIGW["API Gateway<br/>webhook Meta"]
+        GW["conversation_gateway (Lambda)<br/>hub.challenge + X-Hub-Signature-256<br/>resuelve tenant_id (D5)"]
+        SQS["SQS<br/>mensajes con tenant_id y correlation_id"]
+    end
+
+    subgraph orchestration["Orquestación"]
+        SUP["supervisor (Lambda + LangGraph)<br/>estado, nodos, aristas condicionales, checkpoints"]
+        SALUDO["ruta greeting / smalltalk<br/>respuesta neutral, sin agente de ventas"]
+        BED["Amazon Bedrock<br/>LLMPort + Prompt Management<br/>prompts versionados por tenant"]
+        GUARD["Bedrock Guardrails<br/>ApplyGuardrail: grounding_source,<br/>query, guard_content"]
+        AGC["Bedrock AgentCore<br/>Runtime / Memory / Gateway / Identity / Policy<br/>tools hacia el backend legacy"]
+        CMP["Amazon Comprehend<br/>sentimiento para escalar a humano"]
+    end
+
+    subgraph data["Datos"]
+        DDB[("DynamoDB<br/>operacional: contexto, conversaciones<br/>recientes, mapeo canal, límites de abuso")]
+        AUR[("Aurora Serverless v2 + pgvector<br/>conocimiento: productos, servicios,<br/>FAQ, políticas")]
+        S3F[("S3<br/>archivo JSONL de conversaciones,<br/>imágenes y audios")]
+    end
+
+    subgraph legacy["Legacy (repo hermano)"]
+        BACK["sahagunonline/back<br/>APIs del backend + WA_CONFIG / IG_CONFIG / FB_CONFIG"]
+    end
+
+    subgraph ops["Observabilidad"]
+        CW["CloudWatch<br/>logs JSON con correlation_id y tenant_id"]
+        HUM["Agente humano<br/>handoff por sentimiento"]
+    end
+
+    subgraph repos["Repositorios"]
+        THIS["ChatBotAws<br/>src/shared, src/adapters, src/slices,<br/>infra/modules, infra/envs, docs, tests"]
+        IAC["Terraform<br/>estado remoto S3 + lock"]
+    end
+
+    WA --> APIGW
+    IG --> APIGW
+    MS --> APIGW
+    APIGW --> GW
+    GW --> SQS
+    SQS --> SUP
+
+    SUP -->|"intención greeting / smalltalk"| SALUDO
+    SUP -->|"contexto via tool get_customer_context"| DDB
+    SUP -->|"chunks para grounding"| AUR
+    SUP -->|"tool call"| AGC
+    SUP -->|"generación del candidato"| BED
+    SUP -->|"análisis de sentimiento"| CMP
+
+    BED --> GUARD
+    GUARD -->|"aprobada"| APIGW
+    GUARD -->|"bloqueada: fallback + log con correlation_id"| CW
+    AGC -->|"tools con schema, autorización por tenant, timeout"| BACK
+    BACK -->|"réplica del catálogo (D2)"| AUR
+    BACK -->|"mapeo de canal replicado (D5)"| DDB
+
+    SALUDO -->|"respuesta neutral"| APIGW
+    CMP -->|"negativo o petición humana"| HUM
+    HUM -->|"respuesta del agente"| APIGW
+    SUP -->|"archivo y media"| S3F
+    SUP --- CW
+    THIS --- IAC

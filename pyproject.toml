@@ -1,0 +1,164 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chatbot-aws"
+version = "0.1.0"
+description = "Plataforma de chatbot multi-comercio (multi-tenant) sobre AWS"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.7",
+    "pydantic-settings>=2.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.7",
+    "mypy>=1.12",
+    "pytest>=8.3",
+    "pytest-cov>=5.0",
+    "import-linter>=2.15",
+    "pre-commit>=3.7",
+]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# ---------------------------------------------------------------------------
+# Ruff: lint + formato (un solo tool para no duplicar reglas)
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["shared", "adapters", "slices"]
+
+# ---------------------------------------------------------------------------
+# mypy: tipado estricto con curación (sin any implícito, sin defs sin anotar)
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+mypy_path = "src"
+files = ["src", "tests"]
+disallow_untyped_defs = true
+disallow_any_generics = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+strict_equality = true
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q --strict-markers"
+markers = [
+    "contract: pruebas de contrato entre slices o contra el backend legacy",
+    "agent_eval: evaluaciones de comportamiento del agente (datasets)",
+]
+
+# ---------------------------------------------------------------------------
+# import-linter: reglas de dependencia verificables en CI
+#   handler -> application -> domain
+#   infrastructure -> domain
+#   domain no importa infraestructura ni framework externos
+#   adapters/shared nunca dependen de slices
+#   (aislamiento entre slices: ver tests/unit/test_repo_contract.py, que
+#    hace un chequeo AST más preciso que los wildcards de import-linter)
+#   NOTA: import-linter no admite wildcards en "layers"; se usa "containers"
+#   con un contenedor por slice. Al crear un slice nuevo hay que añadirlo a
+#   los dos contratos de abajo (el test de estructura lo verifica).
+# ---------------------------------------------------------------------------
+[tool.importlinter]
+root_packages = ["shared", "adapters", "slices"]
+# Necesario para que los contratos "forbidden" puedan prohibir módulos externos
+# (boto3, langgraph, requests, ...). Documentación: import-linter, include_external_packages.
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Slice layering: handler -> application -> domain"
+type = "layers"
+containers = [
+    "slices.conversation_gateway",
+    "slices.supervisor",
+    "slices.customer_context",
+    "slices.tenant_prompts",
+    "slices.knowledge_rag",
+    "slices.appointments",
+    "slices.orders",
+    "slices.sentiment_handoff",
+    "slices.abuse_protection",
+    "slices.media_handling",
+    "slices.retention_archiving",
+]
+layers = ["handler", "application", "domain"]
+
+[[tool.importlinter.contracts]]
+name = "Slice infrastructure depends only on domain"
+type = "layers"
+containers = [
+    "slices.conversation_gateway",
+    "slices.supervisor",
+    "slices.customer_context",
+    "slices.tenant_prompts",
+    "slices.knowledge_rag",
+    "slices.appointments",
+    "slices.orders",
+    "slices.sentiment_handoff",
+    "slices.abuse_protection",
+    "slices.media_handling",
+    "slices.retention_archiving",
+]
+layers = ["infrastructure", "domain"]
+
+[[tool.importlinter.contracts]]
+name = "Infrastructure never imports application or handler"
+type = "forbidden"
+source_modules = ["slices.*.infrastructure"]
+forbidden_modules = ["slices.*.application", "slices.*.handler"]
+
+[[tool.importlinter.contracts]]
+name = "Domain stays pure (no adapters, no frameworks, no other layers)"
+type = "forbidden"
+source_modules = ["slices.*.domain"]
+forbidden_modules = [
+    "adapters",
+    "adapters.*",
+    "boto3",
+    "boto3.*",
+    "aioboto3",
+    "aws_lambda_powertools",
+    "langgraph",
+    "langgraph.*",
+    "requests",
+    "httpx",
+    "slices.*.infrastructure",
+    "slices.*.application",
+    "slices.*.handler",
+]
+
+[[tool.importlinter.contracts]]
+name = "Adapters never import slices"
+type = "forbidden"
+source_modules = ["adapters", "adapters.*"]
+forbidden_modules = ["slices", "slices.*"]
+
+[[tool.importlinter.contracts]]
+name = "Shared kernel never imports slices nor adapters"
+type = "forbidden"
+source_modules = ["shared", "shared.*"]
+forbidden_modules = ["slices", "slices.*", "adapters", "adapters.*"]

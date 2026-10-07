@@ -1,0 +1,43 @@
+name: Terraform
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - "infra/**"
+      - ".github/workflows/terraform.yml"
+  pull_request:
+    paths:
+      - "infra/**"
+      - ".github/workflows/terraform.yml"
+
+jobs:
+  validate:
+    name: fmt + validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.0"
+          terraform_wrapper: false
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive
+
+      # init sin backend + validate por entorno; en Fase 1 aún no hay .tf y el paso
+      # termina sin hacer nada (el bucle solo entra si existen archivos .tf).
+      - name: terraform validate por entorno
+        run: |
+          for d in envs/*/; do
+            if ls "$d"*.tf >/dev/null 2>&1; then
+              echo "== $d"
+              terraform -chdir="$d" init -backend=false -input=false
+              terraform -chdir="$d" validate
+            fi
+          done
