@@ -5,7 +5,7 @@ con el flujo de trabajo del equipo.
 
 ## Flujo
 
-1. **Issue/tarea** con alcance claro (qué slice, qué regla de negocio, qué fase).
+1. **Issue/tarea** con alcance claro (qué slice, qué regla de negocio, qué paso).
 2. **Rama** desde `master`: `feat/<slice>-<descripcion>` o `fix/<slice>-<descripcion>`.
 3. **Implementación** siguiendo el orden `domain → application → infrastructure → handler`
    y las reglas de dependencia de AGENTS.md §3.

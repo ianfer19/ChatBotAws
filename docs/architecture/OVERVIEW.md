@@ -1,7 +1,7 @@
 # Visión general de la arquitectura
 
 Documento de la Fase 1 (esqueleto y documentación). Describe el sistema tal como se prevé
-construirlo; cada componente indica la fase que lo entrega. Todo dato de AWS no confirmado
+construirlo; cada componente indica el paso que lo entrega. Todo dato de AWS no confirmado
 aparece como `TODO(verify)`.
 
 ## Propósito del sistema
@@ -36,30 +36,30 @@ Volumen inicial: 3 comercios heredados de la plataforma legacy; el chatbot todav
 
 ### Kernel y adaptadores
 
-| Componente | Responsabilidad | Carpeta | Fase |
+| Componente | Responsabilidad | Carpeta | Paso |
 |---|---|---|---|
-| Kernel compartido | `errors`, `logging` (JSON), `config`, `context`, `contracts`, `ports` (`LLMPort`, `ClockPort`, `EventBusPort`) | `src/shared/` | 2 |
-| Adaptadores de plataforma | Bedrock, AgentCore, DynamoDB, Aurora, S3, Comprehend, backend legacy | `src/adapters/` | 4 |
-| Infraestructura | Módulos Terraform reutilizables (`state`, `network`, `aurora`, `dynamodb`, `s3`, `lambda`, `apigw`, `bedrock`, `agentcore`, `iam`, `observability`) | `infra/modules/` | 3 |
-| Entornos | `dev`, `staging`, `prod` con estado remoto S3 + lock | `infra/envs/` | 3 |
-| Prompts | Espejo local de las plantillas versionadas en Bedrock Prompt Management | `prompts/` | 5 |
-| Tests | `unit`, `integration`, `contract`, `agent_evals` | `tests/` | 2+ |
+| Kernel compartido | `errors`, `logging` (JSON), `config`, `context`, `contracts`, `ports` (`LLMPort`, `VectorStorePort`, `MemoryStorePort`, `ClockPort`, `EventBusPort`) | `src/shared/` | 1–2 |
+| Adaptadores de plataforma | Bedrock, AgentCore, DynamoDB, Aurora, S3, Comprehend, backend legacy | `src/adapters/` | 2+ |
+| Infraestructura | Módulos Terraform reutilizables (`state`, `network`, `aurora`, `dynamodb`, `s3`, `lambda`, `apigw`, `bedrock`, `agentcore`, `iam`, `observability`) | `infra/modules/` | 6 |
+| Entornos | `dev`, `staging`, `prod` con estado remoto S3 + lock | `infra/envs/` | 6 |
+| Prompts | Espejo local de las plantillas versionadas en Bedrock Prompt Management | `prompts/` | 3+ |
+| Tests | `unit`, `integration`, `contract`, `agent_evals` | `tests/` | 1+ |
 
 ### Slices (funcionalidad de punta a punta)
 
-| Slice | Responsabilidad | Fase |
+| Slice | Responsabilidad | Paso |
 |---|---|---|
-| `conversation_gateway` | Webhook Meta completo: verificación `hub.challenge`, validación de firma `X-Hub-Signature-256`, resolución de `tenant_id` y encolado en SQS; adapters de canal tras `ChannelPort` | 4 |
+| `conversation_gateway` | Webhook Meta completo: verificación `hub.challenge`, validación de firma `X-Hub-Signature-256`, resolución de `tenant_id` y encolado en SQS; adapters de canal tras `ChannelPort` | 9 |
 | `supervisor` | Grafo LangGraph: enrutado de intenciones, saludo/smalltalk, agente de ventas, confirmación humana | 4 |
 | `customer_context` | Contexto del cliente por turno vía tool `get_customer_context` | 4 |
-| `tenant_prompts` | Prompts versionados y aislados por `tenant_id` | 5 |
-| `knowledge_rag` | Recuperación (chunks + embeddings) sobre Aurora con grounding | 5 |
-| `appointments` | Citas y disponibilidad; tools hacia el backend legacy | 6 |
-| `orders` | Pedidos y reglas de negocio, incluida la negativa a modificar horas | 6 |
-| `sentiment_handoff` | Sentimiento con Comprehend y escalamiento a agente humano | 7 |
-| `abuse_protection` | Límites de uso y bloqueos con TTL | 7 |
-| `media_handling` | Imágenes y audios en S3 | 7 |
-| `retention_archiving` | Archivo y borrado; cierra ADR 0007 | 7 |
+| `tenant_prompts` | Prompts versionados y aislados por `tenant_id` | fuera de ruta |
+| `knowledge_rag` | Recuperación (chunks + embeddings) sobre Aurora con grounding | 7 |
+| `appointments` | Citas y disponibilidad; tools hacia el backend legacy | 3 y 5 |
+| `orders` | Pedidos y reglas de negocio, incluida la negativa a modificar horas | 5 |
+| `sentiment_handoff` | Sentimiento con Comprehend y escalamiento a agente humano | fuera de ruta |
+| `abuse_protection` | Límites de uso y bloqueos con TTL | fuera de ruta |
+| `media_handling` | Imágenes y audios en S3 | fuera de ruta |
+| `retention_archiving` | Archivo y borrado; cierra ADR 0007 | fuera de ruta |
 
 Cada slice vive en `src/slices/<nombre>/` con `domain/`, `application/`, `infrastructure/`,
 `handler/` y su `AGENTS.md`. El detalle está en [HEXAGONAL_AND_SLICING.md](HEXAGONAL_AND_SLICING.md).
@@ -95,7 +95,7 @@ El detalle completo, incluidas las ramas de saludo y de handoff, está en el dia
   enrutar al agente de ventas.
 - **Contexto por turno**: cada turno incluye contexto de cliente e historial con ventana
   controlada y resumen; hay un test que falla si el prompt llega sin ellos.
-- **Retención de conversaciones y media**: pendiente de decisión; se cierra en la Fase 7
+- **Retención de conversaciones y media**: pendiente de decisión; fuera de la ruta (ROADMAP §4)
   con los casos de uso ([ADR 0007](../adr/0007-retencion-de-conversaciones-y-media.md),
   estado Pendiente).
 - **Handoff por sentimiento**: escalamiento a humano con contexto, no solo con el último
@@ -107,7 +107,7 @@ El detalle completo, incluidas las ramas de saludo y de handoff, está en el dia
   como caso soportado explícitamente, así que queda registrado en ADR 0008 con
   `TODO(verify)` (ver [../adr/README.md](../adr/README.md)).
 - **AgentCore**: no es una alternativa a LangGraph; AgentCore ejecuta LangGraph. Adopción
-  modular en la Fase 8, en orden Runtime → Memory → Gateway → Identity + Policy, activando
+  modular en los Pasos 10–12, en orden Runtime → Memory → Gateway → Identity + Policy, activando
   solo lo que resuelva una necesidad real (decisión D4).
 
 ## Reglas de seguridad transversales

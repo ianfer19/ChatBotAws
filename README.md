@@ -13,8 +13,9 @@ gimnasios.
 
 ## Estado
 
-**Fase 1 — esqueleto y documentación.** Aún no hay lógica implementada. El sistema, sus
-fases y sus decisiones están documentados para humanos e IAs:
+**Fases 1–2 completadas — esqueleto, documentación y kernel `shared`.** Aún no hay
+lógica de negocio. El sistema, su ruta ([docs/ROADMAP.md](docs/ROADMAP.md)) y sus
+decisiones están documentados para humanos e IAs:
 
 - **[AGENTS.md](AGENTS.md)** — fuente única de verdad para cualquier IA que trabaje aquí.
 - **[docs/architecture/OVERVIEW.md](docs/architecture/OVERVIEW.md)** — visión general.

@@ -1,3 +1,3 @@
 # Módulo: bedrock
 
-Guardrails (grounding, topics, PII) y acceso a modelos vía `LLMPort`. **Fase 5.**
+Guardrails (grounding, topics, PII) y acceso a modelos vía `LLMPort`. **Pasos 2 y 13.**

@@ -1,8 +1,8 @@
 # Evaluación
 
 Estrategia de evals de ChatBotAws: qué se mide, con qué dataset, con qué umbrales y
-cuándo se ejecuta. La implementación concreta se entrega en la **Fase 9** (evals +
-observabilidad).
+cuándo se ejecuta. La implementación concreta se entrega en los **Pasos 13–14** (observabilidad +
+evals).
 
 ## Tipos de evaluación
 
@@ -97,9 +97,9 @@ de su umbral. Los umbrales viven en configuración, no hardcodeados en el datase
 - **Cobertura mínima**: por cada regla de negocio nueva en `domain/`, al menos un
   caso de dataset; por cada prompt nuevo, su regresión.
 
-## Alineación con la Fase 9
+## Alineación con los Pasos 13–14
 
-La Fase 9 (evals + observabilidad) implementa:
+Los Pasos 13–14 (observabilidad + evals) implementan:
 
 1. Runner de evals y publicación de resultados (`tests/agent_evals/`).
 2. Suite nocturna y gate por cambio de prompt en CI.

@@ -22,8 +22,8 @@ prompts/
 3. **Cambios**: toda modificación de `base/` exige pasar los evals
    ([docs/ai/EVALUATION.md](../docs/ai/EVALUATION.md)) y dejar nota en el changelog del prompt.
 4. **Tenants reales nunca se commitean**: solo `_example/` vive en git; los prompts por
-   comercio se publican en Prompt Management (Fase 5, `tenant_prompts`).
+   comercio se publican en Prompt Management (fuera de la ruta, `tenant_prompts`, ver ROADMAP §4).
 5. Versionado semántico (`v1.2.0`) con rollback en Prompt Management (`TODO(verify)` del
    procedimiento exacto).
 
-Estado: Fase 1; los prompts reales se definen en la Fase 5.
+Estado: plantillas locales (Fases 1–2); los prompts reales se definen con los agentes (Pasos 3–4).

@@ -1,1 +1,4 @@
-"""Adapter de Amazon Comprehend: sentimiento para escalado a humano. Fase 7."""
+"""Adapter de Amazon Comprehend: sentimiento para escalado a humano.
+
+Fuera de la ruta (ROADMAP §4).
+"""

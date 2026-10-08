@@ -102,7 +102,7 @@ runtime. El slice `tenant_prompts` se encarga de la sincronización:
 `TODO(verify)` de los nombres exactos de operaciones de la API de Bedrock Prompt
 Management (crear prompt, crear versión, obtener, listar versiones, etc.) y de los
 parámetros de activación por versión; verificar contra la documentación vigente
-antes de implementar la Fase 5.
+antes de implementar `tenant_prompts` (fuera de la ruta, ROADMAP §4).
 
 ## Seguridad
 
@@ -115,4 +115,4 @@ antes de implementar la Fase 5.
   control de acceso por identidad y por recurso. `TODO(verify)` de los mecanismos
   de autorización de Prompt Management.
 - **Auditoría**: toda publicación queda registrada (autor, versión, timestamp) y se
-  revisa en las métricas de la Fase 9 (ver [EVALUATION.md](EVALUATION.md)).
+  revisa en las métricas de los Pasos 13–14 (ver [EVALUATION.md](EVALUATION.md)).

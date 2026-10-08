@@ -1,7 +1,7 @@
 # Slice: appointments
 
-> Fase de implementación: **Fase 6**. Estado: **definido, sin implementar** (el detalle
-> funcional se completa en su fase; este documento es el contrato previo).
+> Paso de implementación: **Pasos 3 y 5**. Estado: **definido, sin implementar** (el detalle
+> funcional se completa en su paso; este documento es el contrato previo).
 
 ## Responsabilidad
 Reservas y citas de los comercios: consultar disponibilidad, crear y cancelar citas y
@@ -25,14 +25,19 @@ canal (eso es `conversation_gateway`).
   `adapters/aurora`), ports del propio domain (`LegacyOpsPort`,
   `AppointmentRepositoryPort`, `ClockPort`) y los adapters `adapters/legacy_backend`
   (disponibilidad y creación reales) y `adapters/bedrock` (solo redacción).
+- Definidos en el **Paso 1**: `domain/entities.py` (`Appointment`),
+  `domain/ports.py` (`AppointmentRepositoryPort`) e
+  `infrastructure/in_memory.py` (`InMemoryAppointmentRepository`, el doble con el que
+  corren los tests hasta que exista el adapter real en el Paso 6). `LegacyOpsPort`
+  y los contratos expuestos llegan con los Pasos 5 y 11.
 
 ## Tablas y recursos AWS
-| Recurso | Por qué | Fase |
+| Recurso | Por qué | Paso |
 |---|---|---|
 | Aurora PostgreSQL (tabla `appointments`) | Historial y estado de las citas creadas | 6 |
-| APIs legacy `ops_service` vía AgentCore Gateway + Policy | Disponibilidad y creación reales del comercio | 6 |
+| APIs legacy `ops_service` vía AgentCore Gateway + Policy | Disponibilidad y creación reales del comercio | 11 |
 | DynamoDB `appointment_locks` (TTL corto) | Idempotencia de `create_appointment` por `correlation_id` | 6 |
-| CloudWatch Logs | Auditoría de cada invocación de tool | 6 |
+| CloudWatch Logs | Auditoría de cada invocación de tool | 5 |
 
 ## Reglas de negocio clave
 1. Todo dato se filtra por el `tenant_id` resuelto en el gateway: jamás se consulta o
@@ -66,6 +71,9 @@ canal (eso es `conversation_gateway`).
 | `TenantMismatch` | La cita pertenece a otro tenant | Rechazo genérico sin detalles + log error |
 
 ## Cómo probarlo
+- `tests/unit/` (Paso 1, hecho): `test_appointments_repository.py` — el doble cumple el
+  port, aislamiento por tenant, idempotencia por `correlation_id`, periodo de consulta
+  y entidad inmutable.
 - `tests/unit/`: domain de `appointments` — solape rechazado, fecha fuera de horario
   rechazada y datos incompletos que no llegan a crear la entidad.
 - `tests/contract/`: esquemas de `AppointmentCreate` y `AvailabilitySlot`, y que la

@@ -1,6 +1,6 @@
 # Slice: customer_context
 
-> Fase de implementación: **Fase 4**. Estado: **definido, sin implementar**. Responsable
+> Paso de implementación: **Paso 4**. Estado: **definido, sin implementar**. Responsable
 > del contexto obligatorio de cada turno.
 
 ## Responsabilidad
@@ -26,10 +26,10 @@ verdad de negocio: precios, stock, pedidos y horas vienen del legacy/dominio.
 
 ## Tablas y recursos AWS
 
-| Recurso | Por qué | Fase |
+| Recurso | Por qué | Paso |
 |---|---|---|
-| DynamoDB `customer_context` (PK `ORG#<tenant_id>#CUST#<phone>`) | Contexto por cliente y tenant, baja latencia | 3 |
-| DynamoDB (TTL) | Caducidad de contexto inactivo | 3 |
+| DynamoDB `customer_context` (PK `ORG#<tenant_id>#CUST#<phone>`) | Contexto por cliente y tenant, baja latencia | 6 |
+| DynamoDB (TTL) | Caducidad de contexto inactivo | 6 |
 
 ## Reglas de negocio clave
 
@@ -43,7 +43,7 @@ verdad de negocio: precios, stock, pedidos y horas vienen del legacy/dominio.
 4. La tool `get_customer_context` es de **lectura** para el LLM; la escritura solo ocurre
    desde casos de uso (eventos), no desde una herramienta que el modelo pueda invocar
    arbitrariamente.
-5. La memoria largo plazo (AgentCore Memory, Fase 8) es complementaria: lo que importa
+5. La memoria largo plazo (AgentCore Memory, Pasos 10–12) es complementaria: lo que importa
    operacionalmente vive aquí, no en la memoria del modelo.
 
 ## Tools expuestas al LLM

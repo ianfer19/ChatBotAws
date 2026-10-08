@@ -1,7 +1,7 @@
 # Slice: sentiment_handoff
 
-> Fase de implementación: **Fase 7**. Estado: **definido, sin implementar** (el detalle
-> funcional se completa en su fase; este documento es el contrato previo).
+> **Fuera de la ruta** (ROADMAP §4). Estado: **definido, sin implementar** (el detalle
+> funcional se completa en su paso; este documento es el contrato previo).
 
 ## Responsabilidad
 Detección de enojo y traspaso a humano: analiza el texto de cada turno, aplica las reglas
@@ -25,11 +25,11 @@ su cuenta al usuario final.
   la lista de palabras críticas y la ventana de reincidencia.
 
 ## Tablas y recursos AWS
-| Recurso | Por qué | Fase |
+| Recurso | Por qué | Paso |
 |---|---|---|
-| Amazon Comprehend (sentiment) | Clasificación del sentimiento de cada turno | 7 |
-| DynamoDB (ventana de turnos, TTL) | Reincidencia en N turnos por número y tenant | 7 |
-| CloudWatch Logs | Auditoría del handoff con motivo y `correlation_id` | 7 |
+| Amazon Comprehend (sentiment) | Clasificación del sentimiento de cada turno | fuera de ruta |
+| DynamoDB (ventana de turnos, TTL) | Reincidencia en N turnos por número y tenant | fuera de ruta |
+| CloudWatch Logs | Auditoría del handoff con motivo y `correlation_id` | fuera de ruta |
 
 ## Reglas de negocio clave
 1. Umbrales y reglas (negatividad, reincidencia en N turnos, palabras críticas) viven en

@@ -3,7 +3,7 @@
 Documento de la Fase 1 (esqueleto). Qué datos genera ChatBotAws, dónde viven, y el marco
 propuesto de **hot → archivo → eliminación**. La decisión de plazos está **pendiente**
 ([ADR 0007](../adr/0007-retencion-de-conversaciones-y-media.md), estado Pendiente) y se
-cierra en la Fase 7 con los casos de uso reales. Todo dato de AWS no confirmado aparece
+cierra fuera de la ruta (ROADMAP §4) con los casos de uso reales. Todo dato de AWS no confirmado aparece
 como `TODO(verify)`; los huecos de decisión, como `TODO(decision)`.
 
 Ver también: [../architecture/DATA_MODEL.md](../architecture/DATA_MODEL.md),
@@ -16,7 +16,7 @@ Ver también: [../architecture/DATA_MODEL.md](../architecture/DATA_MODEL.md),
 |---|---|
 | ADR | [0007 — Retención de conversaciones y media](../adr/0007-retencion-de-conversaciones-y-media.md) |
 | Estado | **Pendiente** |
-| Cuándo se cierra | Fase 7, con los casos de uso (slice `retention_archiving`) |
+| Cuándo se cierra | Fuera de la ruta (ROADMAP §4), con los casos de uso (slice `retention_archiving`) |
 | Qué falta decidir | `TODO(decision)`: qué se archiva y qué se borra; plazo por tenant configurable; si el archivo se guarda "caliente" o solo en S3 Glacier-equivalente → `TODO(verify)` (clases de almacenamiento) |
 
 Este documento describe el **marco** y las restricciones que ya están fijadas. No fija
@@ -78,7 +78,7 @@ conversación que ya se borró.
   conservación se hace con **DynamoDB Streams**: un Lambda consume los eventos de la tabla y
   copia a S3 lo que corresponda (conversaciones cerradas) antes de que desaparezca. Si el
   Stream falla, el dato no se archiva y se pierde → la cola y los reintentos forman parte
-  del diseño de `retention_archiving` (Fase 7) → `TODO(verify)` (número máximo de streams y
+  del diseño de `retention_archiving`, fuera de la ruta (ROADMAP §4) → `TODO(verify)` (número máximo de streams y
   política de reintento de la tabla).
 - Auditoría y bloqueos: para conservarlos más allá del plazo caliente, se archivan igual y
   se borran con el mismo plazo (`TODO(decision)` si la auditoría necesita un plazo propio).
@@ -92,7 +92,7 @@ conversación que ya se borró.
   mínimos de permanencia).
 - **Límite de reglas de lifecycle por bucket** → `TODO(verify)`: si el límite es bajo, la
   alternativa es agrupar por plazo común (misma vida útil → mismo prefijo) y no crear una
-  regla por tenant. Se decide en la Fase 7 antes de escribir las reglas.
+  regla por tenant. Se decide fuera de la ruta (ROADMAP §4) antes de escribir las reglas.
 - El bucket de media y el de archivo de conversaciones aplican el mismo plazo por tenant
   (sección 4).
 
@@ -102,7 +102,7 @@ conversación que ya se borró.
 |---|---|---|
 | AgentCore Memory | Sus políticas de retención se alinean con D6/ADR 0007: si la conversación se borra, el resumen que la resume también | `TODO(verify)` (cómo se purga Memory por tenant/sesión) y `TODO(decision)` (plazo) |
 | CloudWatch Logs | Retención de log groups con el mismo marco de plazos; los logs contienen `tenant_id` y `correlation_id` | Retención de logs → `TODO(verify)` (opciones y máximo); plazo → `TODO(decision)` |
-| DynamoDB Streams | No es un almacén de destino: es el mecanismo de "archivar antes de borrar" | Definido en la Fase 7 |
+| DynamoDB Streams | No es un almacén de destino: es el mecanismo de "archivar antes de borrar" | Definido fuera de la ruta (ROADMAP §4) |
 | Aurora (conocimiento) | **No aplica** el plazo de conversaciones: es material del comercio, no datos de clientes en conversación | Su ciclo de vida lo gobierna el catálogo (`TODO(decision)` si se pide borrado de un chunk) |
 
 ## 8. Decisiones pendientes
@@ -131,7 +131,7 @@ Flujo previsto cuando un cliente pide borrar sus datos:
                   (identidad del cliente, alcance: un tenant o todos)
         v
 3. Orquestación   Se registra la solicitud con correlation_id y tenant_id
-                  (retention_archiving, Fase 7)
+                  (retention_archiving, fuera de la ruta)
         v
 4. Borrado        Se ejecuta en TODOS los almacenes: DynamoDB (conversación,
                   contexto, auditoría), S3 (archivo y media), AgentCore Memory;
@@ -163,7 +163,7 @@ Flujo previsto cuando un cliente pide borrar sus datos:
 
 ## 11. Cómo se cierra este documento
 
-1. Fase 7: casos de uso reales (¿qué consulta el comercio después de 30/90/180 días?).
+1. Fuera de la ruta (ROADMAP §4): casos de uso reales (¿qué consulta el comercio después de 30/90/180 días?).
 2. Verificar plazos legales y técnicos (`TODO(verify)` de las secciones 6, 7 y 8).
 3. Cerrar el [ADR 0007](../adr/0007-retencion-de-conversaciones-y-media.md) con la decisión
    y convertir las propuestas de la tabla resumen en valores configurados.

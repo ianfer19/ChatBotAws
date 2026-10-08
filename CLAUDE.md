@@ -38,8 +38,8 @@ Equivalente en un solo paso (Linux/macOS): `make verify && make tf-fmt`.
 
 ## Contexto del proyecto
 
-- Fase actual: **1 (esqueleto y documentación)** — ver tabla de fases en AGENTS.md §10.
+- Estado: **Fases 1–2 completadas**; paso activo: **1 (arquitectura/base)** — ver AGENTS.md §10 y [docs/ROADMAP.md](docs/ROADMAP.md).
 - Backend legacy: `C:\Users\ianfe\OneDrive\Documentos\GitHub\sahagunonline\back`
   (solo lectura de referencia: su `AGENTS.md`, `docs/catalogo_endpoints.md` y
   `docs/Architecture.md` explican el sistema actual y el contrato de APIs/tools).
-- Decisiones ya cerradas: ADR 0001–0009 en `docs/adr/`; retención (0007) pendiente hasta Fase 7.
+- Decisiones ya cerradas: ADR 0001–0009 en `docs/adr/`; retención (0007) fuera de la ruta (ROADMAP §4).

@@ -1,7 +1,7 @@
 # Slice: knowledge_rag
 
-> Fase de implementación: **Fase 5**. Estado: **definido, sin implementar** (el detalle
-> funcional se completa en su fase; este documento es el contrato previo).
+> Paso de implementación: **Paso 7**. Estado: **definido, sin implementar** (el detalle
+> funcional se completa en su paso; este documento es el contrato previo).
 
 ## Responsabilidad
 Recuperación y respuesta fundamentada: busca los fragmentos relevantes del conocimiento
@@ -24,12 +24,12 @@ respuesta final (la arma el especialista), no guarda datos de negocio transaccio
   del propio domain (umbral de similitud, ingesta con anti-poisoning).
 
 ## Tablas y recursos AWS
-| Recurso | Por qué | Fase |
+| Recurso | Por qué | Paso |
 |---|---|---|
-| Aurora PostgreSQL + pgvector (`knowledge_chunks`) | Búsqueda semántica filtrada por `tenant_id` | 5 |
-| Bedrock Guardrails (`ApplyGuardrail`) | Verificación de grounding de la respuesta | 5 |
-| Modelo de embeddings en Bedrock | Vectorización de consultas y de los chunks | 5 |
-| CloudWatch Logs | Trazas de retrieval, score y fallback con `correlation_id` | 5 |
+| Aurora PostgreSQL + pgvector (`knowledge_chunks`) | Búsqueda semántica filtrada por `tenant_id` | 7 |
+| Bedrock Guardrails (`ApplyGuardrail`) | Verificación de grounding de la respuesta | 13 |
+| Modelo de embeddings en Bedrock | Vectorización de consultas y de los chunks | 2 |
+| CloudWatch Logs | Trazas de retrieval, score y fallback con `correlation_id` | 7 |
 
 ## Reglas de negocio clave
 1. El filtro `tenant_id` es obligatorio en toda query vectorial: sin excepción y sin

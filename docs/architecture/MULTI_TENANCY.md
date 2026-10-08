@@ -100,7 +100,7 @@ Verificaciones (una por mecanismo de fuga):
 | Fuga por clave DynamoDB | `tests/contract` | Toda clave escrita contiene el prefijo `ORG#{tenant_id}#`; cualquier escritura "huérfana" falla el test. |
 | Fuga por prefijo S3 | `tests/integration` | Todo objeto escrito vive bajo `/<tenant_id>/`. |
 | Fuga por tool con tenant ajeno | `tests/integration` | La tool deniega, responde error controlado y emite el log de auditoría. |
-| Fuga por prompt de otro tenant | `tests/agent_evals` | El prompt cargado corresponde al tenant de la conversación (evals de la Fase 9). |
+| Fuga por prompt de otro tenant | `tests/agent_evals` | El prompt cargado corresponde al tenant de la conversación (evals del Paso 14). |
 
 ## 8. Dónde se aplica el filtro en cada capa
 
@@ -110,7 +110,7 @@ Verificaciones (una por mecanismo de fuga):
 | Aplicación (casos de uso) | `tenant_id` desde el contexto, nunca desde argumentos | `src/slices/*/application` | El caso de uso no arranca: el contexto sin `tenant_id` es error de arranque |
 | Contratos | Pydantic rechaza `tenant_id` en la salida del modelo | `src/shared/contracts` | `validation error` + log de auditoría, respuesta de error controlada |
 | Datos (infra) | Prefijo en clave (DynamoDB), `WHERE tenant_id =` (Aurora), prefijo (S3) | `src/adapters/*` | El repositorio lanza error antes de tocar datos ajenos |
-| Authorization (tools) | AgentCore Policy: default-deny por tenant sobre cada tool | `infra/modules/agentcore` (Fase 6/8) | La llamada a la tool se niega en la capa de policy |
+| Authorization (tools) | AgentCore Policy: default-deny por tenant sobre cada tool | `infra/modules/agentcore` (Pasos 11–12) | La llamada a la tool se niega en la capa de policy |
 | Guardrails de datos | Bedrock Guardrails sobre la respuesta generada | `src/adapters/bedrock` | Respuesta bloqueada antes de salir al cliente |
 
 ## 9. Referencias

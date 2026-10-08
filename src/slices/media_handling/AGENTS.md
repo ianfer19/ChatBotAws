@@ -1,7 +1,7 @@
 # Slice: media_handling
 
-> Fase de implementación: **Fase 7**. Estado: **definido, sin implementar** (el detalle
-> funcional se completa en su fase; este documento es el contrato previo).
+> **Fuera de la ruta** (ROADMAP §4). Estado: **definido, sin implementar** (el detalle
+> funcional se completa en su paso; este documento es el contrato previo).
 
 ## Responsabilidad
 Gestión de imágenes y audios: descarga el medio del webhook de Meta por su ID temporal,
@@ -24,11 +24,11 @@ el ADR 0007).
   del legacy), `ChannelPort` (tres canales Meta, ADR 0009) y `ClockPort`.
 
 ## Tablas y recursos AWS
-| Recurso | Por qué | Fase |
+| Recurso | Por qué | Paso |
 |---|---|---|
-| S3 (prefijo `tenant_id/...`) | Almacenamiento del medio con aislamiento por tenant | 7 |
-| Amazon Transcribe | Transcripción de audio (¿capacidad del legacy? TODO(verify)) | 7 |
-| CloudWatch Logs | Descargas, reintentos y fallos con `correlation_id` | 7 |
+| S3 (prefijo `tenant_id/...`) | Almacenamiento del medio con aislamiento por tenant | fuera de ruta |
+| Amazon Transcribe | Transcripción de audio (¿capacidad del legacy? TODO(verify)) | fuera de ruta |
+| CloudWatch Logs | Descargas, reintentos y fallos con `correlation_id` | fuera de ruta |
 
 ## Reglas de negocio clave
 1. La clave S3 siempre se deriva del `tenant_id` del contexto, nunca del payload del

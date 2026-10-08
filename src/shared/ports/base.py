@@ -8,6 +8,9 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Protocol, runtime_checkable
 
+# El modelo de lenguaje vive en `shared.ports.llm` (firma Converse); aquí solo quedan
+# los ports de utilidad pura (reloj y bus de eventos).
+
 
 @runtime_checkable
 class ClockPort(Protocol):
@@ -15,24 +18,6 @@ class ClockPort(Protocol):
 
     def now(self) -> datetime:
         """Fecha y hora actuales conscientes de la zona horaria (UTC en producción)."""
-        ...
-
-
-@runtime_checkable
-class LLMPort(Protocol):
-    """Generación de texto sobre el modelo tras un port intercambiable (ADR 0004)."""
-
-    def complete(self, *, system: str, prompt: str, max_tokens: int | None = None) -> str:
-        """Invoca al modelo y devuelve la respuesta como texto plano.
-
-        Args:
-            system: Instrucciones de sistema (plantilla ya renderizada).
-            prompt: Entrada del turno actual.
-            max_tokens: Tope de salida opcional; el adapter aplica el del modelo si es None.
-
-        Returns:
-            Texto de la respuesta, sin parsear (el llamador aplica su contrato).
-        """
         ...
 
 

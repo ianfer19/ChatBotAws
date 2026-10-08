@@ -68,17 +68,24 @@ def _module_docstring(path: Path) -> str | None:
 def _resolved_import(stmt: ast.ImportFrom, file_path: Path) -> str:
     """Resuelve un `from ... import ...` a un path absoluto con puntos.
 
+    Los imports absolutos (`from datetime import ...`) se devuelven tal cual: la ruta
+    del archivo no se antepone, porque `datetime` es `datetime` y no un submódulo del
+    paquete. Solo los relativos (`from .entities import ...`) se anclan al paquete
+    del archivo, que es lo que permite comprobar que el `domain/` no se sale de su
+    carpeta.
+
     Args:
         stmt: Nodo ImportFrom a resolver.
-        file_path: Archivo fuente del import (para resolver imports relativos).
+        file_path: Archivo fuente con el import (para anclar los imports relativos).
 
     Returns:
-        Ruta del módulo destino con puntos (p. ej. `slices.orders.domain`).
+        Ruta del módulo destino con puntos (p. ej. `slices.orders.domain.entities`).
     """
+    if stmt.level == 0:
+        return stmt.module or ""
     rel = file_path.relative_to(SRC)
     parts = list(rel.parts[:-1])
-    if stmt.level > 1:
-        parts = parts[: len(parts) - (stmt.level - 1)]
+    parts = parts[: len(parts) - (stmt.level - 1)]
     if stmt.module:
         parts.extend(stmt.module.split("."))
     return ".".join(parts)

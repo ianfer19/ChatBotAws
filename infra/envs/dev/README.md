@@ -1,3 +1,3 @@
 # Entorno: dev
 
-Stack de desarrollo: min ACU en Aurora, datos sintéticos, cuentas de prueba Meta. **Fase 3.**
+Stack de desarrollo: min ACU en Aurora, datos sintéticos, cuentas de prueba Meta. **Paso 6.**

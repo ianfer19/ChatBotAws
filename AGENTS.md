@@ -18,9 +18,9 @@ Colombia). El sistema:
   **solo vía tools validadas** contra el backend legacy (`sahagunonline/back`).
 - Protege el sistema con Guardrails, detección de abuso y handoff humano.
 
-**Este repositorio está en Fase 1 (solo esqueleto y documentación).** No hay lógica
-implementada aún: solo estructura, docs, configuración de calidad y CI. Las fases están
-descritas en [docs/architecture/OVERVIEW.md](docs/architecture/OVERVIEW.md) y en la §10.
+**Estado: Fases 1 y 2 completadas** (esqueleto, documentación, CI y kernel `shared`);
+la lógica de negocio aún no existe. La ruta activa es [docs/ROADMAP.md](docs/ROADMAP.md)
+(14 pasos); visión general: [docs/architecture/OVERVIEW.md](docs/architecture/OVERVIEW.md) y §10.
 
 ---
 
@@ -201,7 +201,7 @@ make tf-fmt                      # formato Terraform
 3. Implementa la llamada en `infrastructure/` (o `adapters/` si es transversal) con:
    validación, autorización por tenant, **timeout**, idempotencia y log de auditoría con
    `correlation_id`.
-4. Registra la tool en el agente correspondiente (LangGraph tool node; en Fase 8, además
+4. Registra la tool en el agente correspondiente (LangGraph tool node; en el Paso 11, además
    como target del **AgentCore Gateway** con su **Policy** de autorización, default-deny).
 5. Añade `allowed_bots`/allowlist por tenant si aplica (ver
    [docs/architecture/MULTI_TENANCY.md](docs/architecture/MULTI_TENANCY.md)).
@@ -232,7 +232,7 @@ por sí sola:
 
 1. La tool **no existe** en la allowlist del LLM.
 2. El dominio `orders/domain` rechaza la operación (`Order` no expone ese cambio).
-3. **AgentCore Policy** deniega la acción (default-deny, Fase 8).
+3. **AgentCore Policy** deniega la acción (default-deny, Paso 11).
 4. **Bedrock Guardrails**: tema denegado configurado.
 5. **Test de regresión** que falla si cualquiera de las capas anteriores se retira.
 
@@ -249,7 +249,7 @@ Mismo patrón para cualquier regla crítica: ninguna depende solo del prompt.
 | D3 | Tres canales Meta tras un `ChannelPort` único | [0009](docs/adr/0009-channelport-unico-canales-meta.md) |
 | D4 | LangGraph + Bedrock hoy; AgentCore con adopción modular (Runtime → Memory → Gateway → Identity+Policy) | [0004](docs/adr/0004-orquestacion-langgraph-agentcore-modular.md) |
 | D5 | `tenant_id` = `store_id` legado, resuelto en el gateway y propagado en todo el contexto | [0003](docs/adr/0003-multi-tenancy-tenant-en-gateway.md) |
-| D6 | Retención de conversaciones/media: **pendiente**, se cierra en Fase 7 | [0007](docs/adr/0007-retencion-de-conversaciones-y-media.md) |
+| D6 | Retención de conversaciones/media: **pendiente**, fuera de la ruta (ROADMAP §4) | [0007](docs/adr/0007-retencion-de-conversaciones-y-media.md) |
 
 Requisitos de corrección que deben mantenerse siempre (con sus tests):
 **saludo** → intención `greeting`/`smalltalk` con ruta propia y saludo neutral, sin enrutar
@@ -275,19 +275,31 @@ Un trabajo está terminado cuando:
 
 ---
 
-## 10. Fases del proyecto
+## 10. Ruta del proyecto (ROADMAP)
 
-| Fase | Alcance | Estado |
+Ruta activa: **[docs/ROADMAP.md](docs/ROADMAP.md)** (14 pasos, criterios de hecho y mapa
+de las fases históricas 1–9 a los pasos nuevos).
+
+| Paso | Alcance | Estado |
 |---|---|---|
-| 1 | Árbol de carpetas, AGENTS.md, docs de arquitectura, ADRs, calidad y CI mínimo | **completada** |
-| 2 | Kernel `shared`, ports, config, logging estructurado, tooling | **completada** |
-| 3 | Módulos Terraform base (state, red mínima, DynamoDB, S3, Aurora, IAM) | pendiente |
-| 4 | Slices: `conversation_gateway`, `supervisor`, `customer_context` + primeros adapters transversales (`src/adapters/`) | pendiente |
-| 5 | Slices: `tenant_prompts`, `knowledge_rag` + guardrails | pendiente |
-| 6 | Slices: `appointments`, `orders` | pendiente |
-| 7 | `sentiment_handoff`, `abuse_protection`, `retention_archiving`, `media_handling` (cierra ADR 0007) | pendiente |
-| 8 | AgentCore: Runtime, Memory, Gateway, Identity, Policy | pendiente |
-| 9 | Observabilidad, evals de agentes y CI/CD completo | pendiente |
+| 1 | Arquitectura/base: ports (`LLMPort` Converse, `VectorStorePort`, `MemoryStorePort`, repositorios de citas/pedidos), dependencias `boto3`+`langgraph`, ROADMAP | **hecho** |
+| 2 | Bedrock + abstracción de modelos (`adapters/bedrock`, Converse API) | pendiente |
+| 3 | LangGraph: grafo de citas + `AgentState` en `appointments/application` | pendiente |
+| 4 | Supervisor (routing, saludo) + `customer_context` (contexto obligatorio por turno) | pendiente |
+| 5 | Tools + lógica de negocio (citas, pedidos) con dobles en memoria | pendiente |
+| 6 | Infraestructura Terraform base (state, red, DynamoDB, S3, Aurora, IAM, apigw, lambda) | pendiente |
+| 7 | RAG + Aurora/pgvector (`knowledge_rag`, `VectorStorePort` → `adapters/aurora`) | pendiente |
+| 8 | Memory / checkpoints (checkpointer de LangGraph, ADR 0007) | pendiente |
+| 9 | Conversation gateway (webhook Meta, 3 canales, firma y tenant) | pendiente |
+| 10 | AgentCore Runtime (+ Memory de AgentCore) | pendiente |
+| 11 | AgentCore Gateway + Policy | pendiente |
+| 12 | AgentCore Identity + Policy | pendiente |
+| 13 | Observabilidad + seguridad (CloudWatch, Guardrails, runbooks) | pendiente |
+| 14 | Evaluación + optimización de costos (agent evals, pricing) | pendiente |
+
+Fuera de la ruta (`TODO(decision)`): `tenant_prompts`, `sentiment_handoff`,
+`abuse_protection`, `media_handling`, `retention_archiving` — ver ROADMAP §4.
+Fases históricas ya completadas: 1 (esqueleto, docs, CI) y 2 (kernel `shared`).
 
 ---
 

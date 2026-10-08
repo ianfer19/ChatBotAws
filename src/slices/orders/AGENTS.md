@@ -1,7 +1,7 @@
 # Slice: orders
 
-> Fase de implementación: **Fase 6**. Estado: **definido, sin implementar** (el detalle
-> funcional se completa en su fase; este documento es el contrato previo).
+> Paso de implementación: **Paso 5**. Estado: **definido, sin implementar** (el detalle
+> funcional se completa en su paso; este documento es el contrato previo).
 
 ## Responsabilidad
 Pedidos del comercio: catálogo, consulta de estado y creación con confirmación humana
@@ -24,15 +24,20 @@ la intención ni redacta la respuesta final.
 - Consume: `VectorStorePort` (catálogo en Aurora; adapter `adapters/aurora`), ports del
   propio domain (`LegacyOrdersPort`, `OrderRepositoryPort`, `ClockPort`) y adapters
   `adapters/legacy_backend` (negocio real) y `adapters/bedrock` (solo redacción).
+- Definidos en el **Paso 1**: `domain/entities.py` (`Order`, `OrderItem`),
+  `domain/ports.py` (`OrderRepositoryPort`) e
+  `infrastructure/in_memory.py` (`InMemoryOrderRepository`, el doble con el que corren
+  los tests hasta que exista el adapter real en el Paso 6). `LegacyOrdersPort` y los
+  contratos expuestos llegan con el Paso 5.
 
 ## Tablas y recursos AWS
-| Recurso | Por qué | Fase |
+| Recurso | Por qué | Paso |
 |---|---|---|
-| APIs legacy de pedidos vía AgentCore Gateway + Policy | Catálogo, estado, creación y pago reales | 6 |
+| APIs legacy de pedidos vía AgentCore Gateway + Policy | Catálogo, estado, creación y pago reales | 11 |
 | Aurora PostgreSQL (tabla `orders`) | Estado y trazabilidad del pedido | 6 |
 | DynamoDB `order_locks` (TTL) | Idempotencia de `create_order` por `correlation_id` | 6 |
-| Bedrock Guardrails (tema denegado: cambiar hora del pedido) | Defensa en profundidad de la regla crítica | 6 |
-| CloudWatch Logs | Auditoría de tools y de rechazos del domain | 6 |
+| Bedrock Guardrails (tema denegado: cambiar hora del pedido) | Defensa en profundidad de la regla crítica | 13 |
+| CloudWatch Logs | Auditoría de tools y de rechazos del domain | 5 |
 
 ## Reglas de negocio clave
 1. **Defensa en profundidad**: no existe tool de cambio de hora; `Order` en domain no
@@ -70,6 +75,9 @@ la intención ni redacta la respuesta final.
 | `LegacyTimeout` | `ops_service` no responde en el timeout | Disculpa al usuario + log error con `correlation_id` |
 
 ## Cómo probarlo
+- `tests/unit/` (Paso 1, hecho): `test_orders_repository.py` — el doble cumple el port,
+  aislamiento por tenant, idempotencia por `correlation_id`, cantidades no positivas
+  rechazadas y **regresión de la capa 2**: `Order` no expone ningún campo de hora.
 - `tests/unit/`: domain de `orders` — `Order` no expone ninguna operación de cambio de
   hora, carrito vacío rechazado, mínimo de compra y horario de cocina.
 - `tests/contract/`: esquemas de `OrderCreateRequest` y `OrderView`, y rechazo de

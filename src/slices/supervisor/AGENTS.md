@@ -1,6 +1,6 @@
 # Slice: supervisor
 
-> Fase de implementación: **Fase 4**. Estado: **definido, sin implementar**. Router de
+> Paso de implementación: **Paso 4**. Estado: **definido, sin implementar**. Router de
 > intención de todos los turnos.
 
 ## Responsabilidad
@@ -25,11 +25,11 @@ responde él mismo en el caso del saludo. Aplica también la salida temprana de 
 
 ## Tablas y recursos AWS
 
-| Recurso | Por qué | Fase |
+| Recurso | Por qué | Paso |
 |---|---|---|
 | Bedrock (modelo clasificador) | Decisión de intención barata y configurable | 4 |
-| Prompt `supervisor` (Prompt Management) | Clasificación versionada por tenant | 5 |
-| DynamoDB (métrica de intenciones, opcional) | Dashboards de uso por tenant | 4/9 |
+| Prompt `supervisor` (archivos locales; Prompt Management fuera de la ruta) | Clasificación versionada por tenant | 4 |
+| DynamoDB (métrica de intenciones, opcional) | Dashboards de uso por tenant | 4/13 |
 
 ## Reglas de negocio clave
 

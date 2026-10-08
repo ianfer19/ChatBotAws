@@ -1,7 +1,7 @@
 # Slice: tenant_prompts
 
-> Fase de implementación: **Fase 5**. Estado: **definido, sin implementar** (el detalle
-> funcional se completa en su fase; este documento es el contrato previo).
+> **Fuera de la ruta** (ROADMAP §4). Estado: **definido, sin implementar** (el detalle
+> funcional se completa en su paso; este documento es el contrato previo).
 
 ## Responsabilidad
 Selección y carga del prompt de cada comercio: lee las versiones publicadas en Bedrock
@@ -25,11 +25,11 @@ rollback y rollout gradual. No contiene lógica de negocio ni decide la intenci�
   cacheo por versión vive en el propio infrastructure.
 
 ## Tablas y recursos AWS
-| Recurso | Por qué | Fase |
+| Recurso | Por qué | Paso |
 |---|---|---|
-| Bedrock Prompt Management | Prompts versionados por operación y tenant | 5 |
-| KMS (cifrado de prompts) | Manejo seguro de las plantillas personalizadas (uso exacto: TODO(verify)) | 5 |
-| CloudWatch Logs | Cargas, caches, rollbacks y fallbacks con `tenant_id` | 5 |
+| Bedrock Prompt Management | Prompts versionados por operación y tenant | fuera de ruta |
+| KMS (cifrado de prompts) | Manejo seguro de las plantillas personalizadas (uso exacto: TODO(verify)) | fuera de ruta |
+| CloudWatch Logs | Cargas, caches, rollbacks y fallbacks con `tenant_id` | fuera de ruta |
 
 ## Reglas de negocio clave
 1. Si falta la personalización del tenant, se usa la plantilla base de `prompts/base/`

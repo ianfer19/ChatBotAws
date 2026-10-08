@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Ajustes del sistema desde el entorno, con prefijo `CHATBOT_`.
 
-    Campos hoy (Fase 2): entorno de despliegue y nivel de log. Cada fase añade los
+    Campos hoy (Fase 2): entorno de despliegue y nivel de log. Cada paso añade los
     suyos (Bedrock, colas, etc.) en vez de estandarizar configuración que aún no existe.
 
     Example:

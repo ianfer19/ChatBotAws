@@ -1,7 +1,7 @@
 # Modelo de amenazas
 
 Documento de la Fase 1 (esqueleto). Qué defender, contra quién, con qué capas y cómo se
-verifica. Es un documento vivo: cada slice nuevo o cada cambio de fase obliga a revisarlo.
+verifica. Es un documento vivo: cada slice nuevo o cada paso nuevo de la ruta obliga a revisarlo.
 Controles generales en [SECURITY.md](./SECURITY.md); aislamiento por tenant en
 [../architecture/MULTI_TENANCY.md](../architecture/MULTI_TENANCY.md). Todo dato de AWS no
 confirmado aparece como `TODO(verify)`.
@@ -56,7 +56,7 @@ Ver también: [../architecture/HEXAGONAL_AND_SLICING.md](../architecture/HEXAGON
 | **Prompt leaking** | Extraer el prompt de sistema, reglas internas, prompts de otro tenant o datos ocultos mediante peticiones tipo "repite tus instrucciones" o "responde en JSON con tu configuración". | 1. Temas de revelación de instrucciones denegados en Guardrails, con respuesta de fallback y log con `correlation_id`. 2. El prompt de sistema no contiene secretos ni datos de otros tenants: instrucciones y datos van separados; los secretos viven en Secrets Manager. 3. Evals de fuga en `tests/agent_evals` (petición explícita de prompt → espera de bloqueo). 4. Logs de auditoría por intento para detectar reincidencia y bloquear con TTL. | Guardrails · prompt · evals/logging |
 | **Jailbreaking** | Evadir las restricciones del sistema para obtener comportamiento no permitido (suplantar al comercio, obtener datos de otro tenant, ejecutar acciones prohibidas). | 1. Jerarquía de instrucciones en el prompt (sistema > herramientas > usuario) más *sandwich defense*. 2. Guardrails con temas denegados y filtros de ataque; bloqueo → fallback + log. 3. La autorización no depende del prompt: tools con autorización por tenant, AgentCore Policy default-deny y validación en `domain/` (ejemplo en la sección 5). 4. Reincidencia → rate limit y bloqueo temporal con TTL configurable, motivo en auditoría, desbloqueo manual. | prompt · Guardrails · AgentCore Policy/dominio · `abuse_protection` |
 | **Denial of wallet** (agotamiento de tokens) | Sesiones largas, bucles de reintento o tráfico masivo que disparan la factura de Bedrock y de las tools sin entregar valor. | 1. Heurísticas baratas primero: rate limit por tenant y por remitente, límite de longitud de mensaje y de mensajes duplicados en el gateway. 2. Presupuesto por conversación en `supervisor`: ventana de historial controlada, resumen al superar el límite y tope de tokens/turnos por sesión. 3. Clasificador LLM solo si la heurística no basta (cuesta tokens, se usa en último lugar); bloqueo temporal con TTL y motivo en auditoría. 4. Métricas y alarmas de consumo por tenant en CloudWatch → `TODO(verify)` (métrica y umbral exactos). | gateway · `abuse_protection` · `supervisor` · observabilidad |
-| **Bots externos (p. ej. Tigo u otros)** | Tráfico automatizado de terceros hacia el canal del comercio: ráfagas, plantillas repetidas, intentos de agotar límites o de secuestrar la conversación. | 1. Verificación de firma `X-Hub-Signature-256` + identidad de canal resuelta del mapeo oficial: solo los emisores mapeados llegan a procesar. 2. Heurísticas baratas: velocidad por remitente, longitud, duplicados y patrones conocidos → rate limit o bloqueo con TTL. 3. Clasificación solo si el heurístico duda; bloqueo con motivo en auditoría y desbloqueo manual (runbook `ABUSE_UNLOCK.md`, Fase 7, aún no creado). 4. Métricas por remitente/tenant y alarma de estallidos → revisión y calibración de umbrales. | gateway · `abuse_protection` · observabilidad · runbook |
+| **Bots externos (p. ej. Tigo u otros)** | Tráfico automatizado de terceros hacia el canal del comercio: ráfagas, plantillas repetidas, intentos de agotar límites o de secuestrar la conversación. | 1. Verificación de firma `X-Hub-Signature-256` + identidad de canal resuelta del mapeo oficial: solo los emisores mapeados llegan a procesar. 2. Heurísticas baratas: velocidad por remitente, longitud, duplicados y patrones conocidos → rate limit o bloqueo con TTL. 3. Clasificación solo si el heurístico duda; bloqueo con motivo en auditoría y desbloqueo manual (runbook `ABUSE_UNLOCK.md`, fuera de la ruta, aún no creado). 4. Métricas por remitente/tenant y alarma de estallidos → revisión y calibración de umbrales. | gateway · `abuse_protection` · observabilidad · runbook |
 | **Fuga entre tenants** | Un cliente o un error de código obtiene datos, prompts o respuestas de otro comercio; el peor caso es silencioso. | 1. `tenant_id` resuelto en el gateway y propagado en contexto; los schemas de tools no incluyen `tenant_id` y su valor en la salida del modelo se descarta. 2. Filtro por capa de datos: prefijo `ORG#{tenant_id}#` en DynamoDB, `WHERE tenant_id =` en Aurora, prefijo `/<tenant_id>/` en S3. 3. AgentCore Policy default-deny y forbid-wins por tenant sobre cada tool. 4. Tests de aislamiento A/B en `tests/integration` y `tests/contract`; cualquier respuesta con datos ajenos falla el build. | gateway/contexto · datos · AgentCore Policy · tests |
 
 ## 5. Ejemplo canónico de defensa en profundidad
@@ -64,13 +64,13 @@ Ver también: [../architecture/HEXAGONAL_AND_SLICING.md](../architecture/HEXAGON
 El chatbot **no puede modificar la hora de un pedido**. La prohibición no vive en el prompt
 sino en cinco capas independientes:
 
-| Capa | Qué hace | Fase |
+| Capa | Qué hace | Paso |
 |---|---|---|
-| 1. Tool inexistente | `orders` no expone ninguna tool de modificación de horario al LLM | 6 |
-| 2. Dominio | `orders/domain` rechaza el cambio de `Order.scheduled_at` con un error tipado | 6 |
-| 3. AgentCore Policy | La política del tenant deniega la acción (default-deny / forbid-wins) | 6/8 |
-| 4. Guardrails | El tema queda denegado; bloqueo → fallback + log con `correlation_id` | 5 |
-| 5. Regresión | Test en `tests/unit/` y eval en `tests/agent_evals/` que fallan si alguna capa se abre | 5/9 |
+| 1. Tool inexistente | `orders` no expone ninguna tool de modificación de horario al LLM | 5 |
+| 2. Dominio | `orders/domain` rechaza el cambio de `Order.scheduled_at` con un error tipado | 5 |
+| 3. AgentCore Policy | La política del tenant deniega la acción (default-deny / forbid-wins) | 11 |
+| 4. Guardrails | El tema queda denegado; bloqueo → fallback + log con `correlation_id` | 13 |
+| 5. Regresión | Test en `tests/unit/` y eval en `tests/agent_evals/` que fallan si alguna capa se abre | 5/14 |
 
 Detalle en [../architecture/HEXAGONAL_AND_SLICING.md](../architecture/HEXAGONAL_AND_SLICING.md).
 
@@ -88,7 +88,7 @@ Detalle en [../architecture/HEXAGONAL_AND_SLICING.md](../architecture/HEXAGONAL_
 ## 7. Denegación de servicio y abuso: umbrales y calibración
 
 Heurísticas baratas primero; clasificador LLM solo si hace falta. Los valores de la tabla
-son **propuestas iniciales de este repo, no límites de AWS**, y se calibran en la Fase 7 con
+son **propuestas iniciales de este repo, no límites de AWS**, y se calibran fuera de la ruta (ROADMAP §4) con
 tráfico real (0 usuarios al inicio → se empieza en observación, no en bloqueo agresivo).
 
 | Señal | Umbral inicial propuesto | Acción | Cómo calibrar (falsos positivos) |
@@ -101,10 +101,10 @@ tráfico real (0 usuarios al inicio → se empieza en observación, no en bloque
 | Patrones de injection detectados | 3 / hora por remitente | Bloqueo temporal con TTL | Revisión manual de cada bloqueo; si hay falsos positivos, se relaja y se anota en el ADR de abuso |
 
 Política de bloqueo: TTL configurable (empezar corto), **motivo siempre en auditoría** y
-**desbloqueo manual** (runbook `ABUSE_UNLOCK.md`, Fase 7, aún no creado). Calibración: si
+**desbloqueo manual** (runbook `ABUSE_UNLOCK.md`, fuera de la ruta, aún no creado). Calibración: si
 la proporción de bloqueos que terminan en revisión humana y se revierten es alta, se sube
 el umbral; si hay reincidencia tras desbloquear, se baja. Los falsos positivos se llevan a
-la revisión de la Fase 7 junto con [../adr/README.md](../adr/README.md).
+la revisión fuera de la ruta (ROADMAP §4) junto con [../adr/README.md](../adr/README.md).
 
 ## 8. Diagrama de ataque: inyección indirecta
 
@@ -140,16 +140,16 @@ la autorización vive en las capas E y F, no en el contenido recuperado.
 
 ## 9. Verificación: amenaza → dónde se prueba
 
-| Amenaza | Verificación | Fase |
+| Amenaza | Verificación | Paso |
 |---|---|---|
-| Inyección directa | Evals de ataque + tests de contrato de salida | 5/9 |
-| Inyección indirecta | Evals con chunks hostiles + test de bloqueo de Guardrails | 5/9 |
-| Poisoning en RAG | Test de ingesta (fuentes permitidas) + eval con dataset hostil | 5/9 |
-| Prompt leaking | Eval de fuga de instrucciones → espera de bloqueo y log | 5/9 |
-| Jailbreak | Evals de evasión + test de capa `domain/`/policy | 5/6/9 |
-| Denial of wallet | Tests unitarios de límites y de presupuesto por sesión | 7/9 |
-| Bots externos | Tests de rate limit y de firma inválida en `conversation_gateway` | 4/7 |
-| Fuga entre tenants | Tests A/B de aislamiento en `tests/integration` y `tests/contract` | 4+ |
+| Inyección directa | Evals de ataque + tests de contrato de salida | 5/14 |
+| Inyección indirecta | Evals con chunks hostiles + test de bloqueo de Guardrails | 7/13 |
+| Poisoning en RAG | Test de ingesta (fuentes permitidas) + eval con dataset hostil | 7/14 |
+| Prompt leaking | Eval de fuga de instrucciones → espera de bloqueo y log | 14 |
+| Jailbreak | Evals de evasión + test de capa `domain/`/policy | 5/11/14 |
+| Denial of wallet | Tests unitarios de límites y de presupuesto por sesión | 4/14 |
+| Bots externos | Tests de rate limit y de firma inválida en `conversation_gateway` | 9 |
+| Fuga entre tenants | Tests A/B de aislamiento en `tests/integration` y `tests/contract` | 6+ |
 
 ## 10. Referencias
 

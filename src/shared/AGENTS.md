@@ -19,7 +19,7 @@ AWS** y **nunca importa** `slices.*` ni `adapters.*` (lo verifica import-linter 
 | `config/` | Pydantic Settings desde variables de entorno | Valores por defecto sensibles, secretos en código |
 | `context/` | `contextvar` de tenant/correlación, helper de composición (DI) | Estado global mutable |
 | `contracts/` | Modelos Pydantic de mensajes/eventos entre slices (versionados) | Implementaciones, lógica de caso de uso |
-| `ports/` | `LLMPort`, `ClockPort`, `EventBusPort` (Protocol/ABC) | Adapters concretos (viven en `adapters/`) |
+| `ports/` | `LLMPort`, `VectorStorePort`, `MemoryStorePort`, `ClockPort`, `EventBusPort` (Protocol) | Adapters concretos (viven en `adapters/`) |
 
 ## Estado (Fase 2: implementado)
 
@@ -30,7 +30,7 @@ AWS** y **nunca importa** `slices.*` ni `adapters.*` (lo verifica import-linter 
 | `config/` | `settings.py`: `Settings` (`CHATBOT_ENVIRONMENT`, `CHATBOT_LOG_LEVEL`) + `load_settings` | `tests/unit/test_shared_config.py` |
 | `logging/` | `formatter.py` (JSON + redacción de secretos) + `logger.py` (`configure_logging`, `get_logger`) | `tests/unit/test_shared_logging.py` |
 | `contracts/` | `types.py` (`Channel`, `Intent`, `AgentName`) + `messages.py` (`InboundMessage`, `OutboundMessage`, `RoutedTurn`, `CustomerContext`; `schema_version`, `frozen`, `extra=forbid`) | `tests/unit/test_shared_contracts.py` |
-| `ports/` | `base.py`: `ClockPort`, `LLMPort`, `EventBusPort` (`runtime_checkable`) | `tests/unit/test_shared_ports.py` |
+| `ports/` | `base.py`: `ClockPort`, `EventBusPort`; `llm.py`: `LLMMessage`, `LLMResult`, `LLMPort`; `vector.py`: `VectorRecord`, `VectorHit`, `VectorStorePort`; `memory.py`: `MemoryStorePort` (todos `runtime_checkable`) | `tests/unit/test_shared_ports.py` |
 
 Errores propios de un slice: subclasificar `AppError` en el slice (p. ej.
 `InvalidSignatureError` en `conversation_gateway`). Contratos nuevos: añadir el modelo a

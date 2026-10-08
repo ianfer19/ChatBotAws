@@ -1,7 +1,7 @@
 # Slice: abuse_protection
 
-> Fase de implementación: **Fase 7**. Estado: **definido, sin implementar** (el detalle
-> funcional se completa en su fase; este documento es el contrato previo).
+> **Fuera de la ruta** (ROADMAP §4). Estado: **definido, sin implementar** (el detalle
+> funcional se completa en su paso; este documento es el contrato previo).
 
 ## Responsabilidad
 Bloqueo temporal por abuso: evalúa cada mensaje con heurísticas baratas primero y, solo
@@ -26,12 +26,12 @@ intención y no sustituye al guardrail general (`../../../docs/ai/GUARDRAILS.md`
   para calcular el TTL del bloqueo.
 
 ## Tablas y recursos AWS
-| Recurso | Por qué | Fase |
+| Recurso | Por qué | Paso |
 |---|---|---|
-| DynamoDB `abuse_blocks` (TTL configurable) | Bloqueo temporal por número y tenant | 7 |
-| DynamoDB `abuse_audit` | Motivo, umbral y decisión de cada bloqueo o desbloqueo | 7 |
-| Bedrock (clasificador) | Injection/poisoning solo si las heurísticas no bastan | 7 |
-| CloudWatch Logs/Metrics | Tasas por número, tenant y campaña para calibrar umbrales | 7 |
+| DynamoDB `abuse_blocks` (TTL configurable) | Bloqueo temporal por número y tenant | fuera de ruta |
+| DynamoDB `abuse_audit` | Motivo, umbral y decisión de cada bloqueo o desbloqueo | fuera de ruta |
+| Bedrock (clasificador) | Injection/poisoning solo si las heurísticas no bastan | fuera de ruta |
+| CloudWatch Logs/Metrics | Tasas por número, tenant y campaña para calibrar umbrales | fuera de ruta |
 
 ## Reglas de negocio clave
 1. Heurísticas baratas primero: rate limit por número/tenant, patrones de texto y

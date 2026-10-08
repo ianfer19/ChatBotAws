@@ -127,7 +127,7 @@ misma prohibición existe en cinco capas independientes:
 5. **Regresión**: un test en `tests/unit/` y una eval en `tests/agent_evals/` fallan si
    alguna capa se abre.
 
-Capas 1, 2 y 5 son código de este repo (aplicables ya en las Fases 2–6); la capa 4
-(Guardrails) se activa en la Fase 5 y la 3 (AgentCore Policy) en la Fase 8. El patrón
+Capas 1, 2 y 5 son código de este repo (aplicables ya en la Fase 2 y en los Pasos 1–7); la capa 4
+(Guardrails) se activa en el Paso 13 y la 3 (AgentCore Policy) en los Pasos 11–12. El patrón
 general es el mismo para precios, stock, disponibilidad y estados de pedido: primero el
 dominio, después el modelo.

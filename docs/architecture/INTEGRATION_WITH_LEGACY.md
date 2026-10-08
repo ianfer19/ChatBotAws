@@ -12,17 +12,17 @@ Ver también: [MULTI_TENANCY.md](./MULTI_TENANCY.md), [AGENTCORE.md](./AGENTCORE
 
 ## 2. Servicios legacy relevantes
 
-| Servicio legacy | Rol hoy | Qué lo sustituye aquí | Fase |
+| Servicio legacy | Rol hoy | Qué lo sustituye aquí | Paso |
 |---|---|---|---|
-| `whatsapp_webhook_service` | Recibe el webhook Meta, valida firma y encola en SQS | `conversation_gateway` (webhook completo: `hub.challenge`, `X-Hub-Signature-256`, SQS) | 4 |
-| `whatsapp_orchestrator_service` | SQS → LangGraph (~1700 líneas), con tools directas contra DynamoDB (`search_products`, `get_menu`) | `supervisor` + tools vía AgentCore Gateway (D2): el LLM nunca toca la base de datos | 4 → 6 |
+| `whatsapp_webhook_service` | Recibe el webhook Meta, valida firma y encola en SQS | `conversation_gateway` (webhook completo: `hub.challenge`, `X-Hub-Signature-256`, SQS) | 9 |
+| `whatsapp_orchestrator_service` | SQS → LangGraph (~1700 líneas), con tools directas contra DynamoDB (`search_products`, `get_menu`) | `supervisor` + tools vía AgentCore Gateway (D2): el LLM nunca toca la base de datos | 4 → 11 |
 | `ai_chat_service` | Chatbot con Step Functions | `supervisor` (LangGraph), sin Step Functions | 4 |
 | `tenant_service` | Config de comercio: branding, `allowed_bots`, `menu_images` | Se **consulta** por HTTP; no se duplica (fuente de verdad = legacy) | 4 |
-| `sales_service` | Pedidos y mesas | Slice `orders` (tools `get_order_status`, `create_order`) | 6 |
-| `product_service` | Catálogo de productos | Slice `knowledge_rag` (réplica a Aurora para RAG) + tool `search_products` vía HTTP | 5 → 6 |
-| `ops_service` | Reservas y citas | Slice `appointments` (tools `get_appointments`, `create_appointment`) | 6 |
+| `sales_service` | Pedidos y mesas | Slice `orders` (tools `get_order_status`, `create_order`) | 5 |
+| `product_service` | Catálogo de productos | Slice `knowledge_rag` (réplica a Aurora para RAG) + tool `search_products` vía HTTP | 5 → 7 |
+| `ops_service` | Reservas y citas | Slice `appointments` (tools `get_appointments`, `create_appointment`) | 5 |
 
-Los nombres de los servicios son los del legacy; los endpoints exactos que exponen se levantan en Fase 6 (sección 4).
+Los nombres de los servicios son los del legacy; los endpoints exactos que exponen se levantan en el Paso 5 (sección 4).
 
 ## 3. Flujo actual vs. flujo futuro (webhook Meta)
 
@@ -71,7 +71,7 @@ Lista **tentativa** de tools de negocio que expondrá AgentCore Gateway (D2). Ca
 | `create_appointment` | Agendar cita | `TODO(verify)` |
 | `get_opening_hours` | Horarios de atención | `TODO(verify)` |
 
-Todos los endpoints se levantan en **Fase 6** leyendo `docs/catalogo_endpoints.md` del repo legacy; ninguna de estas rutas se implementa "de memoria". Tools de **escritura** (p. ej. `create_order`) exigen idempotencia por `correlation_id`. El ejemplo canónico de las reglas de seguridad es el reverso: para "modificar la hora de un pedido" la tool **no existe**.
+Todos los endpoints se levantan en el **Paso 5** leyendo `docs/catalogo_endpoints.md` del repo legacy; ninguna de estas rutas se implementa "de memoria". Tools de **escritura** (p. ej. `create_order`) exigen idempotencia por `correlation_id`. El ejemplo canónico de las reglas de seguridad es el reverso: para "modificar la hora de un pedido" la tool **no existe**.
 
 ## 5. Autenticación sistema → legacy
 
@@ -80,7 +80,7 @@ Todos los endpoints se levantan en **Fase 6** leyendo `docs/catalogo_endpoints.m
 | Hoy (legacy interno) | Header `x-internal-call: true` entre Lambdas del propio legacy | Conocido, en uso |
 | Este sistema | Llamadas salientes a los endpoints del legacy autenticadas | `TODO(verify)` (opciones: conservar `x-internal-call` restringido por red/IAM, API key gestionada, o credenciales vía AgentCore Identity) |
 
-Regla mientras se verifica: **no se inventa credencial ni header nuevo**; toda llamada sale por `src/adapters/legacy_backend`, que es el único punto donde se decide el mecanismo. Cuando Active Identity (Fase 8), las credenciales salientes viven allí.
+Regla mientras se verifica: **no se inventa credencial ni header nuevo**; toda llamada sale por `src/adapters/legacy_backend`, que es el único punto donde se decide el mecanismo. Cuando Active Identity (Paso 12), las credenciales salientes viven allí.
 
 ## 6. Identificadores compartidos
 
@@ -89,7 +89,7 @@ Regla mientras se verifica: **no se inventa credencial ni header nuevo**; toda l
 | `tenant_id` | `store_id` del legacy (p. ej. `"Sede_Elite_01"`) | `conversation_gateway`, desde el mapeo de canal (D5) |
 | `from_number` | Número/identificador Meta del cliente; es la clave natural de cliente en todas las tools | El gateway del canal; se pasa tal cual al legacy |
 | `allowed_bots` | Entitlements de bots (`sales`, `appointments`, ...) en `CONFIG#COMMERCE` | Legacy (fuente de verdad); este repo sólo los respeta |
-| Branding | `display_name`, `primary_domain`, `menu_images` en `ORG#{tenant_id}` / `CONFIG#COMMERCE` | Legacy; este repo los lee para personalizar prompts (Fase 5) |
+| Branding | `display_name`, `primary_domain`, `menu_images` en `ORG#{tenant_id}` / `CONFIG#COMMERCE` | Legacy; este repo los lee para personalizar prompts (locales hasta `tenant_prompts`, fuera de la ruta) |
 | Mapeo de canal | `WA_CONFIG#{phone_number_id}` → `store_id` | Legacy; **replicado** aquí (sección 7) |
 
 Cualquier divergencia entre identificadores (p. ej. un `store_id` que no existe en el legacy) se trata como error de configuración del tenant: se deniega la conversación y se alerta, nunca se "adivina".
@@ -97,8 +97,8 @@ Cualquier divergencia entre identificadores (p. ej. un `store_id` que no existe 
 ## 7. Estrategia de migración por comercio
 
 1. **Bandera por número**: cada comercio se activa con un flag/ruta que apunta su número de teléfono o WABA a `conversation_gateway`. El mecanismo concreto → `TODO(verify)` (sección 3).
-2. **Orden**: primero `conversation_gateway` + `supervisor` + `customer_context` (Fase 4), luego prompts/RAG (Fase 5), luego tools de negocio (Fase 6).
-3. **Criterios de corte** (todos cumplidos antes de migrar al siguiente comercio): firma y `hub.challenge` funcionando con tráfico real, evals de la Fase 9 en verde para ese tenant, cero errores de aislamiento, criterios de aceptación acordados con el comercio.
+2. **Orden**: primero `supervisor` + `customer_context` (Paso 4), luego tools de negocio (Paso 5) y RAG (Paso 7), y por último `conversation_gateway` (Paso 9).
+3. **Criterios de corte** (todos cumplidos antes de migrar al siguiente comercio): firma y `hub.challenge` funcionando con tráfico real, evals del Paso 14 en verde para ese tenant, cero errores de aislamiento, criterios de aceptación acordados con el comercio.
 4. **Rollback**: se devuelve el número al orquestador legacy (bandera en off). El legacy nunca se apaga mientras quede un comercio sin migrar; su estado se conserva porque los datos son suyos.
 5. **Retroceso de datos**: este repo no escribe en las tablas de negocio del legacy (salvo las escrituras que el propio legacy exponga por API), por lo que un rollback no deja datos huérfanos.
 
@@ -124,7 +124,7 @@ En el repo hermano `sahagunonline/back`:
 | Documento | Para qué |
 |---|---|
 | `AGENTS.md` | Convenciones, estructura y reglas del equipo legacy |
-| `docs/catalogo_endpoints.md` | Endpoints exactos de catálogo, pedidos y citas (base de la tabla de la sección 4, Fase 6) |
+| `docs/catalogo_endpoints.md` | Endpoints exactos de catálogo, pedidos y citas (base de la tabla de la sección 4, Pasos 5 y 11) |
 | `docs/Architecture.md` | Arquitectura general, tablas y flujos existentes |
 
 Si este repo y el legacy discrepan en un hecho verificable, manda el legacy: es quien tiene los datos y el tráfico en producción.

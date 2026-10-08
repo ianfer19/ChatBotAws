@@ -1,3 +1,3 @@
 # Módulo: apigw
 
-API Gateway HTTP: webhook Meta (verificación + firma) e internos. **Fase 3.**
+API Gateway HTTP: webhook Meta (verificación + firma) e internos. **Paso 6.**

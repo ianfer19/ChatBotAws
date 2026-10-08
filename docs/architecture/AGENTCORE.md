@@ -14,10 +14,10 @@ AgentCore es el conjunto de servicios managed de Amazon Bedrock para **ejecutar,
 
 ```mermaid
 flowchart TB
-    subgraph DEV["Desarrollo (Fase 4 en adelante)"]
+    subgraph DEV["Desarrollo (Paso 3 en adelante)"]
         L[Lambda] --> G1["LangGraph + Bedrock (LLMPort)"]
     end
-    subgraph PROD["Produccion (Fase 8 en adelante)"]
+    subgraph PROD["Produccion (Paso 10 en adelante)"]
         R["AgentCore Runtime (microVMs)"] --> G2["LangGraph"]
     end
     G1 --> T[tools via Gateway / HTTP al legacy]
@@ -73,17 +73,18 @@ El mismo grafo, las mismas tools y los mismos contratos en ambos caminos; cambia
 | Webhook Meta y gateway de canal (verificación, firma, encolado) | **Lambda** | Entrada HTTP puntual y de corta duración; no aporta nada tenerla en AgentCore y sí complica el despliegue por tenant (D1) |
 | RAG (búsqueda semántica) | **Lambda** consultando Aurora + pgvector | Sólo requiere una query con filtro por tenant; no justifica otro servicio |
 
-## 4. Adopción modular alineada a las fases
+## 4. Adopción modular alineada a la ruta (ROADMAP)
 
 Orden de adopción (D4): Runtime → Memory → Gateway → Identity + Policy. Nunca todos a la vez.
 
-| Fase | Qué se activa | Qué se gana | Qué se paga |
+| Paso | Qué se activa | Qué se gana | Qué se paga |
 |---|---|---|---|
-| Fase 4 | **Nada de AgentCore.** LangGraph + Bedrock en Lambda (`conversation_gateway`, `supervisor`, `customer_context`) | Menor operación y menor costo: cero plataforma nueva que aprender, cero services que monitorear | Autorización de tools y manejo de sesiones a mano, en código |
-| Fase 6 | **Gateway + Policy** (tools de `appointments` y `orders` publicadas contra el legacy), con el grafo todavía en Lambda | Autorización centralizada y schema autogenerado; el contrato de tools queda listo antes de mover el grafo | Un servicio más en escena, políticas que hay que versionar y probar |
-| Fase 8 | **Runtime + Memory + Identity** (el grafo migra de Lambda a Runtime) | Sesiones aisladas y memoria entre sesiones gestionadas; credenciales fuera de nuestro código | Más componentes a operar y facturación nueva por uso → `TODO(verify pricing)` |
+| Pasos 3–5 | **Nada de AgentCore.** LangGraph + Bedrock en Lambda (`conversation_gateway`, `supervisor`, `customer_context`) | Menor operación y menor costo: cero plataforma nueva que aprender, cero services que monitorear | Autorización de tools y manejo de sesiones a mano, en código |
+| Paso 10 | **Runtime + Memory** (el grafo migra de Lambda a Runtime) | Sesiones aisladas y memoria entre sesiones gestionadas | Más componentes a operar y facturación nueva por uso → `TODO(verify pricing)` |
+| Paso 11 | **Gateway + Policy** (tools de `appointments` y `orders` publicadas contra el legacy, con el grafo ya en Runtime) | Autorización centralizada y schema autogenerado; el contrato de tools queda listo antes de publicar nada | Un servicio más en escena, políticas que hay que versionar y probar |
+| Paso 12 | **Identity** (identidad entrante/saliente) | Credenciales fuera de nuestro código | Rotación de credenciales sin redeploy |
 
-El salto de Fase 4 a Fase 6 es "más gobernanza, mismo runtime". El de Fase 6 a Fase 8 es "menos operación propia, más servicio managed": se decide con métricas de las fases anteriores, no por defecto.
+El salto de los Pasos 3–5 al Paso 10 es "menos operación propia, más servicio managed"; el del Paso 10 al 11 añade "más gobernanza, mismo runtime"; el Paso 12 saca las credenciales de nuestro código. Todo se decide con métricas de los pasos anteriores, no por defecto.
 
 Criterios para activar el siguiente componente:
 
@@ -98,7 +99,7 @@ Criterios para activar el siguiente componente:
 - **Costo**: cada componente añade su propia facturación (ejecución de sesiones, memoria, llamadas a tools). Precios → `TODO(verify pricing)`. Regla de decisión: se activa un componente sólo si el costo de operarlo nosotros supera su costo managed (tabla de la sección 4).
 - **Lock-in**:
   - El **grafo y la lógica** son LangGraph, framework abierto: se pueden ejecutar en Lambda, en un contenedor o en cualquier otro runner.
-  - Todas las capacidades externas se consumen tras **puertos** en `src/shared/ports` (`LLMPort`, `ClockPort`, `EventBusPort`) y adapters en `src/adapters/`: cambiar de runner o de proveedor de memoria es sustituir un adapter, no reescribir slices.
+  - Todas las capacidades externas se consumen tras **puertos** en `src/shared/ports` (`LLMPort`, `VectorStorePort`, `MemoryStorePort`, `ClockPort`, `EventBusPort`) y adapters en `src/adapters/`: cambiar de runner o de proveedor de memoria es sustituir un adapter, no reescribir slices.
   - La infraestructura de AgentCore vive en el módulo propio `infra/modules/agentcore`, aislada del resto: se puede destruir sin tocar las Lambdas.
   - Las tools se definen en código de este repo; si mañana no usamos Gateway, republicamos las mismas firmas desde Lambda.
 
@@ -108,11 +109,11 @@ El módulo está vacío (esqueleto). Los resources candidatos del provider de Te
 
 | Recurso candidato | Propósito | Estado |
 |---|---|---|
-| Runtime (agente/endpoint de ejecución) | Hostear el grafo en prod (Fase 8) | `TODO(verify)` resource y argumentos |
-| Memory | Memoria entre sesiones (Fase 8) | `TODO(verify)` resource y argumentos |
-| Gateway (apis → tools MCP) | Publicar tools del legacy (Fase 6) | `TODO(verify)` resource y argumentos |
-| Identity | Identidad entrante/saliente (Fase 8) | `TODO(verify)` resource y argumentos |
-| Policy (Cedar/Dogwood) y policy session | Autorización de tools (Fase 6) | `TODO(verify)` resource y argumentos |
+| Runtime (agente/endpoint de ejecución) | Hostear el grafo en prod (Paso 10) | `TODO(verify)` resource y argumentos |
+| Memory | Memoria entre sesiones (Paso 10) | `TODO(verify)` resource y argumentos |
+| Gateway (apis → tools MCP) | Publicar tools del legacy (Paso 11) | `TODO(verify)` resource y argumentos |
+| Identity | Identidad entrante/saliente (Paso 12) | `TODO(verify)` resource y argumentos |
+| Policy (Cedar/Dogwood) y policy session | Autorización de tools (Paso 11) | `TODO(verify)` resource y argumentos |
 | Permisos/roles asociados | Vincular con `infra/modules/iam` | `TODO(verify)` |
 
 Ninguno de estos resources se declara hasta verificar su existencia y soporte en el provider; hasta entonces el módulo sólo documenta intención.

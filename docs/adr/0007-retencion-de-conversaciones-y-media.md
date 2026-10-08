@@ -11,8 +11,8 @@ DynamoDB), los **archivos media** entrantes y salientes (imágenes, audio, docum
 S3) y las **trazas de orquestación** (logs con `correlation_id`). El slice
 `retention_archiving` existe precisamente para gestionar su ciclo de vida.
 
-No se puede decidir todavía un plazo concreto porque faltan los casos de uso reales de la
-Fase 7 (qué consulta legal aplica, qué pide cada comercio, qué necesita soporte para
+No se puede decidir todavía un plazo concreto porque faltan los casos de uso reales
+(qué consulta legal aplica, qué pide cada comercio, qué necesita soporte para
 revisar una conversación). Lo que sí hay que fijar ahora es el **marco** en el que se
 tomará la decisión, para que el diseño de almacenamiento (ADR 0002) ya lo soporte.
 
@@ -37,7 +37,7 @@ Implica:
   `TODO(verify)`.
 - El plazo es **igual para conversaciones y para media**: un único valor de política.
 - El diseño del slice admite que el plazo sea **configurable por tenant**, aunque la
-  decisión de si lo es, se cierra en la Fase 7.
+  decisión de si lo es, queda fuera de la ruta (ROADMAP §4).
 
 ### Opciones abiertas (`TODO(decision)`)
 
@@ -48,7 +48,7 @@ Implica:
 - ¿Qué dice el marco legal colombiano (Ley 1581 de protección de datos) sobre plazos
   mínimos y derechos del titular? Requiere revisión jurídica: `TODO(verify)`.
 
-La decisión se cierra en la **Fase 7**, con los casos de uso sobre la mesa →
+La decisión queda **fuera de la ruta (ROADMAP §4)**, con los casos de uso sobre la mesa →
 `TODO(decision)`.
 
 ## Alternativas consideradas
@@ -57,7 +57,7 @@ La decisión se cierra en la **Fase 7**, con los casos de uso sobre la mesa →
 | --- | --- | --- | --- |
 | Todo en DynamoDB con TTL (sin archivo) | Mecanismo de un solo paso, cero código de archivado. | La conversación desaparece sin copia: soporte no puede revisar nada; el media en S3 quedaría huérfano. | Se descarta porque elimina la posibilidad de auditoría y de soporte. |
 | Conservarlo todo indefinidamente en S3 (data lake) | Máxima información disponible para futuros análisis. | Coste creciente y sin límite; incumple el derecho de supresión del titular. | Se descarta por coste y por obligaciones de protección de datos. |
-| Plazo distinto para texto y para media | Optimiza cada tipo por su coste y sensibilidad. | Dos políticas que divergen, más casos de prueba y más decisiones abiertas. | Se descarta de momento por complejidad; puede reabrirse en la Fase 7 si los casos de uso lo exigen. |
+| Plazo distinto para texto y para media | Optimiza cada tipo por su coste y sensibilidad. | Dos políticas que divergen, más casos de prueba y más decisiones abiertas. | Se descarta de momento por complejidad; puede reabrirse en la revisión fuera de la ruta (ROADMAP §4) si los casos de uso lo exigen. |
 
 ## Consecuencias
 
@@ -72,7 +72,7 @@ La decisión se cierra en la **Fase 7**, con los casos de uso sobre la mesa →
 ### Negativas / riesgos
 
 - Con el ADR pendiente, cualquier implementación prematura de retención puede quedar
-  inutilizada; conviene no programar plazos fijos hasta la Fase 7.
+  inutilizada; conviene no programar plazos fijos hasta la revisión fuera de la ruta (ROADMAP §4).
 - El pipeline Stream → archivado → S3 es una pieza asíncrona que puede perder eventos o
   reordenarlos: hay que diseñarlo idempotente.
 - Si el marco legal exige un plazo mínimo mayor que el operativo, habrá que retrasar el

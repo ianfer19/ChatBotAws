@@ -63,23 +63,23 @@ El LLM no habla con la BD ni con el legacy: invoca tools publicadas tras AgentCo
 ## 3. IAM por función
 
 Los nombres exactos de acciones, ARNs y condiciones se definen en `infra/modules/iam`
-(Fase 3) → `TODO(verify)` (acciones IAM mínimas por rol). La regla es la tabla siguiente;
+(Paso 6) → `TODO(verify)` (acciones IAM mínimas por rol). La regla es la tabla siguiente;
 lo que no aparece, no se concede.
 
-| Rol / función | Fase · slice | Permisos mínimos (conceptuales) | Prohibido |
+| Rol / función | Paso · slice | Permisos mínimos (conceptuales) | Prohibido |
 |---|---|---|---|
-| `lambda_webhook` | 4 · `conversation_gateway` | Enviar a SQS, leer el mapeo de canal, leer `verify_token`/app secret, escribir logs | Leer conversaciones ajenas, invocar modelos |
+| `lambda_webhook` | 9 · `conversation_gateway` | Enviar a SQS, leer el mapeo de canal, leer `verify_token`/app secret, escribir logs | Leer conversaciones ajenas, invocar modelos |
 | `lambda_supervisor` | 4 · `supervisor` | Invocar los modelos del `LLMPort`, leer/escribir checkpointer en DynamoDB, escribir logs/métricas | Acceder a Aurora o S3, gestionar claves |
 | `lambda_customer_context` | 4 · `customer_context` | Leer contexto de cliente en DynamoDB, escribir logs | Escribir en tablas de configuración |
-| `lambda_tenant_prompts` | 5 · `tenant_prompts` | Resolver la versión de prompt del tenant, escribir logs | Publicar prompts de otros tenants |
-| `lambda_knowledge_rag` | 5 · `knowledge_rag` | Ejecutar queries con filtro `tenant_id` sobre Aurora usando el secreto de BD, escribir logs | Escrituras fuera del esquema de conocimiento, acceso a DynamoDB operacional |
-| `lambda_orders` / `lambda_appointments` | 6 · `orders`, `appointments` | Invocar tools publicadas en AgentCore Gateway, leer credenciales del legacy, escribir logs | Invocar tools de otro tenant, modificar recursos del legacy fuera de las tools |
-| `lambda_sentiment_handoff` | 7 · `sentiment_handoff` | Analizar el mensaje actual con Comprehend, marcar handoff en DynamoDB, escribir logs | Leer historial completo de otros tenants |
-| `lambda_abuse_protection` | 7 · `abuse_protection` | Leer/escribir contadores y bloqueos en DynamoDB (con TTL), escribir logs | Bloquear sin dejar motivo en auditoría |
-| `lambda_media_handling` | 7 · `media_handling` | Leer/escribir objetos bajo `/<tenant_id>/` en S3, escribir logs | Listar o leer prefijos de otros tenants |
-| `lambda_retention_archiving` | 7 · `retention_archiving` | Consumir DynamoDB Streams, mover/borrar objetos de S3 por prefijo, escribir logs | Borrar sin registro de auditoría |
-| `agentcore_gateway_role` | 6/8 · tools al legacy | Invocar las APIs publicadas, leer credenciales del legacy | Cualquier acceso directo a Aurora/DynamoDB nuestros |
-| `role_terraform_ci` | 3 · CI/CD | Desplegar por entorno, leer/escribir el estado S3 + lock | Acceder a datos de clientes o a secretos de producción en PRs |
+| `lambda_tenant_prompts` | fuera de ruta · `tenant_prompts` | Resolver la versión de prompt del tenant, escribir logs | Publicar prompts de otros tenants |
+| `lambda_knowledge_rag` | 7 · `knowledge_rag` | Ejecutar queries con filtro `tenant_id` sobre Aurora usando el secreto de BD, escribir logs | Escrituras fuera del esquema de conocimiento, acceso a DynamoDB operacional |
+| `lambda_orders` / `lambda_appointments` | 5 · `orders`, `appointments` | Invocar tools publicadas en AgentCore Gateway, leer credenciales del legacy, escribir logs | Invocar tools de otro tenant, modificar recursos del legacy fuera de las tools |
+| `lambda_sentiment_handoff` | fuera de ruta · `sentiment_handoff` | Analizar el mensaje actual con Comprehend, marcar handoff en DynamoDB, escribir logs | Leer historial completo de otros tenants |
+| `lambda_abuse_protection` | fuera de ruta · `abuse_protection` | Leer/escribir contadores y bloqueos en DynamoDB (con TTL), escribir logs | Bloquear sin dejar motivo en auditoría |
+| `lambda_media_handling` | fuera de ruta · `media_handling` | Leer/escribir objetos bajo `/<tenant_id>/` en S3, escribir logs | Listar o leer prefijos de otros tenants |
+| `lambda_retention_archiving` | fuera de ruta · `retention_archiving` | Consumir DynamoDB Streams, mover/borrar objetos de S3 por prefijo, escribir logs | Borrar sin registro de auditoría |
+| `agentcore_gateway_role` | 11 · tools al legacy | Invocar las APIs publicadas, leer credenciales del legacy | Cualquier acceso directo a Aurora/DynamoDB nuestros |
+| `role_terraform_ci` | 6 · CI/CD | Desplegar por entorno, leer/escribir el estado S3 + lock | Acceder a datos de clientes o a secretos de producción en PRs |
 
 Reglas transversales: sin `*`; sin permisos entre entornos (un rol por entorno); las
 Lambdas jamás leen ni escriben el estado de Terraform; todo cambio de permisos se revisa
@@ -104,7 +104,7 @@ clave auditado → `TODO(verify)` (CloudTrail de KMS).
 | Tipo de dato | Servicio | Ejemplos | Rotación |
 |---|---|---|---|
 | Secreto real, con rotación o por tenant | Secrets Manager | `access_token` de canal por tenant, app secret de Meta, `verify_token`, credenciales del legacy | Rotación gestionada donde exista → `TODO(verify)` (mecanismo y coste: `TODO(verify pricing)`) |
-| Configuración no sensible | SSM Parameter Store (estándar) | ARNs, flags de fase, umbrales de abuso, identificadores de modelo | Cambio por despliegue, versionado |
+| Configuración no sensible | SSM Parameter Store (estándar) | ARNs, flags de habilitación, umbrales de abuso, identificadores de modelo | Cambio por despliegue, versionado |
 | Secreto compartido con el legacy | Secrets Manager | Token de servicio con el que el gateway habla al legacy | Coordinado con `sahagunonline/back` → `TODO(verify)` |
 
 Reglas: nada secreto en el repo, en `prompts/`, en variables de entorno hardcodeadas ni en
@@ -156,7 +156,7 @@ desde el `correlation_id` afectado.
 
 El detalle de los flujos vive en `.github/workflows/` (`ci.yml` y `terraform.yml`,
 creados en Fase 1); los checks de secretos y de auditoría de dependencias de esta tabla
-**aún no están** en ellos → `TODO(verify)` (añadir en su fase y nombres exactos de jobs).
+**aún no están** en ellos → `TODO(verify)` (añadir en su paso y nombres exactos de jobs).
 
 ## 9. Checklist antes de publicar un slice
 

@@ -121,7 +121,7 @@ s3://<bucket-archivo>/
 1. **Todo dato lleva `tenant_id`** y toda operación lo filtra; es el contrato que revisan
    los tests de contrato en `tests/contract/`.
 2. **Retención pendiente**: los plazos de conversaciones, media, TTL de DynamoDB y
-   lifecycle de S3 se cierran juntos en la Fase 7 con los casos de uso
+   lifecycle de S3 se cierran fuera de la ruta (ROADMAP §4) con los casos de uso
    ([ADR 0007](../adr/0007-retencion-de-conversaciones-y-media.md)).
 3. Cualquier cambio de este documento requiere un ADR nuevo o la actualización del
    existente en [../adr/README.md](../adr/README.md).

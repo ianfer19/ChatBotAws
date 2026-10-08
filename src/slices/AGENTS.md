@@ -24,19 +24,19 @@ el dominio no importa nada externo (salvo stdlib, pydantic y `shared`).
 
 ## Índice de slices
 
-| Slice | Responsabilidad | Fase | Estado |
+| Slice | Responsabilidad | Paso | Estado |
 |---|---|---|---|
-| `conversation_gateway` | Entrada de mensajes Meta (3 canales), verificación/firma, `correlation_id`, resolución de tenant, respuesta al canal | 4 | definido |
+| `conversation_gateway` | Entrada de mensajes Meta (3 canales), verificación/firma, `correlation_id`, resolución de tenant, respuesta al canal | 9 | definido |
 | `supervisor` | Router de intención: saludo/smalltalk (ruta propia), ventas, citas, pedidos, FAQ | 4 | definido |
 | `customer_context` | Contexto del cliente por turno (`get_customer_context`) y su actualización | 4 | definido |
-| `tenant_prompts` | Prompts por tenant desde Prompt Management con fallback y rollback | 5 | definido |
-| `knowledge_rag` | Retrieval sobre Aurora+pgvector y respuesta fundamentada con grounding | 5 | definido |
-| `appointments` | Reservas/citas con confirmación y validación de horarios | 6 | definido |
-| `orders` | Pedidos: carrito, estado y la regla inmutable de la hora | 6 | definido |
-| `sentiment_handoff` | Sentimiento + reglas → `human_takeover` | 7 | definido |
-| `abuse_protection` | Detección de abuso y bloqueo temporal con TTL | 7 | definido |
-| `media_handling` | Imágenes/audios: descarga, S3, transcripción, envío | 7 | definido |
-| `retention_archiving` | Hot (DynamoDB) → archivo (S3) → borrado; cierra ADR 0007 | 7 | definido |
+| `tenant_prompts` | Prompts por tenant desde Prompt Management con fallback y rollback | fuera de ruta | definido |
+| `knowledge_rag` | Retrieval sobre Aurora+pgvector y respuesta fundamentada con grounding | 7 | definido |
+| `appointments` | Reservas/citas con confirmación y validación de horarios | 3 y 5 | definido |
+| `orders` | Pedidos: carrito, estado y la regla inmutable de la hora | 5 | definido |
+| `sentiment_handoff` | Sentimiento + reglas → `human_takeover` | fuera de ruta | definido |
+| `abuse_protection` | Detección de abuso y bloqueo temporal con TTL | fuera de ruta | definido |
+| `media_handling` | Imágenes/audios: descarga, S3, transcripción, envío | fuera de ruta | definido |
+| `retention_archiving` | Hot (DynamoDB) → archivo (S3) → borrado; cierra ADR 0007 | fuera de ruta | definido |
 
 Cada fila enlaza al `AGENTS.md` de su carpeta, que es su contrato funcional previo a la
 implementación.

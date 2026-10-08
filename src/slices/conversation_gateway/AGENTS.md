@@ -1,6 +1,6 @@
 # Slice: conversation_gateway
 
-> Fase de implementación: **Fase 4**. Estado: **definido, sin implementar**. Es la puerta
+> Paso de implementación: **Paso 9**. Estado: **definido, sin implementar**. Es la puerta
 > única de entrada de la plataforma.
 
 ## Responsabilidad
@@ -27,12 +27,12 @@ intenciones, NO ejecuta tools de negocio, NO contiene lógica de ventas/citas/pe
 
 ## Tablas y recursos AWS
 
-| Recurso | Por qué | Fase |
+| Recurso | Por qué | Paso |
 |---|---|---|
-| API Gateway HTTP (`/webhook`) | Entrada pública del webhook Meta (verificación + firma) | 3 |
-| SQS (cola de entrada) | Desacoplar recepción de procesamiento y absorber picos | 3 |
-| DynamoDB `channel_mapping` | Mapeo id de emisor Meta → `store_id` (réplica del legacy `WA_CONFIG#`/`IG_CONFIG#`/`FB_CONFIG#`) | 3/4 |
-| Secrets Manager/SSM | Secreto de verificación y tokens Meta (por tenant) | 3 |
+| API Gateway HTTP (`/webhook`) | Entrada pública del webhook Meta (verificación + firma) | 6 |
+| SQS (cola de entrada) | Desacoplar recepción de procesamiento y absorber picos | 6 |
+| DynamoDB `channel_mapping` | Mapeo id de emisor Meta → `store_id` (réplica del legacy `WA_CONFIG#`/`IG_CONFIG#`/`FB_CONFIG#`) | 6/9 |
+| Secrets Manager/SSM | Secreto de verificación y tokens Meta (por tenant) | 6 |
 
 ## Reglas de negocio clave
 

@@ -1,7 +1,7 @@
 # Slice: retention_archiving
 
-> Fase de implementación: **Fase 7**. Estado: **definido, sin implementar** (el detalle
-> funcional se completa en su fase; este documento es el contrato previo; cierra el
+> **Fuera de la ruta** (ROADMAP §4). Estado: **definido, sin implementar** (el detalle
+> funcional se completa en su paso; este documento es el contrato previo; cierra el
 > ADR 0007).
 
 ## Responsabilidad
@@ -25,12 +25,12 @@ la conversación.
   disparador es DynamoDB Streams.
 
 ## Tablas y recursos AWS
-| Recurso | Por qué | Fase |
+| Recurso | Por qué | Paso |
 |---|---|---|
-| DynamoDB (datos en caliente con TTL) | Vencimiento del plazo por tenant y tipo | 7 |
-| DynamoDB Streams | Archivar antes de que el TTL borre el registro | 7 |
-| S3 (archivo JSONL por conversación + lifecycle) | Archivo duradero y pura final (límite de reglas por bucket: TODO(verify)) | 7 |
-| CloudWatch Logs | Log de cada archivo y de cada purga | 7 |
+| DynamoDB (datos en caliente con TTL) | Vencimiento del plazo por tenant y tipo | fuera de ruta |
+| DynamoDB Streams | Archivar antes de que el TTL borre el registro | fuera de ruta |
+| S3 (archivo JSONL por conversación + lifecycle) | Archivo duradero y pura final (límite de reglas por bucket: TODO(verify)) | fuera de ruta |
+| CloudWatch Logs | Log de cada archivo y de cada purga | fuera de ruta |
 
 ## Reglas de negocio clave
 1. Nunca se borra sin haber archivado antes, o sin confirmar que no corresponde
@@ -40,7 +40,7 @@ la conversación.
 4. La pura final la ejecuta el lifecycle de S3; el límite de reglas por bucket es
    TODO(verify).
 5. Qué se archiva y qué se borra en definitiva: TODO(decision) (ADR 0007) y se cierra
-   en esta fase con los casos de uso (ver
+   fuera de la ruta (ROADMAP §4) con los casos de uso (ver
    `../../../docs/adr/0007-retencion-de-conversaciones-y-media.md`).
 6. El Streams entrega al menos una vez: el archivado es idempotente por conversación.
 7. Cada purga y cada archivo se registran en log con `tenant_id` y volumen.

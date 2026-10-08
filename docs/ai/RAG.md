@@ -1,7 +1,7 @@
 # RAG (conocimiento del comercio)
 
 Recuperación aumentada sobre Aurora PostgreSQL Serverless v2 + pgvector. El slice
-responsable es `knowledge_rag` (Fase 5).
+responsable es `knowledge_rag` (Paso 7).
 
 ## Alcance
 
@@ -24,7 +24,7 @@ sistema transaccional, gana el sistema transaccional.
 Fuentes del legacy -> normalización por tenant -> chunking -> embeddings -> pgvector
 ```
 
-1. **Fuentes**: catálogo, servicios, FAQ y políticas del backend legacy (Fase 5,
+1. **Fuentes**: catálogo, servicios, FAQ y políticas del backend legacy (Paso 7,
    adapter en `src/adapters/legacy_backend/`).
 2. **Normalización por tenant**: cada documento se marca con `tenant_id`; nunca se
    ingiere un documento sin tenant asignado.
@@ -110,7 +110,7 @@ por eso la ingesta y la separación de fuentes son el control real.
 ## Latencia y costos
 
 - Presupuesto de latencia por turno: `TODO(verify)`; medir retrieval + generación +
-  guardrail en la Fase 9.
+  guardrail en el Paso 13.
 - Embeddings de ingesta y de consulta, almacenamiento de pgvector y reranking
   tienen coste propio: `TODO(verify pricing)` antes de estimar el impacto de
   ampliar el catálogo o de re-ingestas frecuentes.

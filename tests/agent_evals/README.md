@@ -9,7 +9,7 @@ comprueban lo que el agente responde y hace en situaciones concretas.
 tests/agent_evals/
 ├── README.md          # este archivo
 ├── datasets/          # casos versionados (JSON) — ver docs/ai/EVALUATION.md
-└── test_<nombre>.py   # ejecutores de los datasets (Fase 9)
+└── test_<nombre>.py   # ejecutores de los datasets (Paso 14)
 ```
 
 ## Casos obligatorios (regresión)
@@ -30,5 +30,5 @@ tests/agent_evals/
 - Un cambio de prompt no puede mergearse si un caso obligatorio pasa a fallar
   (ver `docs/ai/EVALUATION.md`).
 
-Estado: los datasets y ejecutores se crean en la **Fase 9** (observabilidad y evals);
+Estado: los datasets y ejecutores se crean en el **Paso 14** (evals);
 los casos anteriores ya están definidos aquí como contrato.

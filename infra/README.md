@@ -19,19 +19,19 @@ Estado remoto en S3 con lock en DynamoDB (módulo `state/`).
 
 ## Módulos
 
-| Módulo | Qué crea | Costo estimado (orden de magnitud) | Fase |
+| Módulo | Qué crea | Costo estimado (orden de magnitud) | Paso |
 |---|---|---|---|
-| `state/` | S3 de estado + lock DynamoDB | < 1 USD/mes (`TODO(verify pricing)`) | 3 |
-| `network/` | VPC mínima + endpoints | endpoints desde ~USD 0.01/h c/u (`TODO(verify pricing)`) | 3 |
-| `aurora/` | Aurora PostgreSQL Serverless v2 + pgvector, KMS | desde ~USD 20–40/mes con min ACU bajo + storage (`TODO(verify pricing)`) | 3 |
-| `dynamodb/` | Tablas operacionales con TTL (on-demand) | < 5 USD/mes a volumen inicial (`TODO(verify pricing)`) | 3 |
-| `s3/` | Buckets de archivo/media con lifecycle y KMS | ~USD 0.023/GB-mes (`TODO(verify pricing)`) | 3 |
-| `lambda/` | Paquetes e IAM por función (Python 3.12) | ~USD 0.20/millón de invocaciones + compute (`TODO(verify pricing)`) | 3 |
-| `apigw/` | API Gateway HTTP (webhook Meta, internos) | ~USD 1/millón de llamadas (`TODO(verify pricing)`) | 3 |
-| `bedrock/` | Guardrails y acceso a modelos | por token; depende del modelo (`TODO(verify pricing)`) | 5 |
-| `agentcore/` | Runtime, Memory, Gateway, Identity, Policy | pay-as-you-go por uso/sesión (`TODO(verify pricing)`) | 8 |
-| `iam/` | Roles/políticas compartidos least-privilege | — | 3 |
-| `observability/` | Logs JSON, métricas, alarmas, dashboard | por ingesta de logs (`TODO(verify pricing)`) | 9 |
+| `state/` | S3 de estado + lock DynamoDB | < 1 USD/mes (`TODO(verify pricing)`) | 6 |
+| `network/` | VPC mínima + endpoints | endpoints desde ~USD 0.01/h c/u (`TODO(verify pricing)`) | 6 |
+| `aurora/` | Aurora PostgreSQL Serverless v2 + pgvector, KMS | desde ~USD 20–40/mes con min ACU bajo + storage (`TODO(verify pricing)`) | 6 |
+| `dynamodb/` | Tablas operacionales con TTL (on-demand) | < 5 USD/mes a volumen inicial (`TODO(verify pricing)`) | 6 |
+| `s3/` | Buckets de archivo/media con lifecycle y KMS | ~USD 0.023/GB-mes (`TODO(verify pricing)`) | 6 |
+| `lambda/` | Paquetes e IAM por función (Python 3.12) | ~USD 0.20/millón de invocaciones + compute (`TODO(verify pricing)`) | 6 |
+| `apigw/` | API Gateway HTTP (webhook Meta, internos) | ~USD 1/millón de llamadas (`TODO(verify pricing)`) | 6 |
+| `bedrock/` | Guardrails y acceso a modelos | por token; depende del modelo (`TODO(verify pricing)`) | 2 y 13 |
+| `agentcore/` | Runtime, Memory, Gateway, Identity, Policy | pay-as-you-go por uso/sesión (`TODO(verify pricing)`) | 10–12 |
+| `iam/` | Roles/políticas compartidos least-privilege | — | 6 |
+| `observability/` | Logs JSON, métricas, alarmas, dashboard | por ingesta de logs (`TODO(verify pricing)`) | 13 |
 
 > Los precios son estimaciones de referencia; verificar en la calculadora de AWS antes de
 > decidir (marcados `TODO(verify pricing)`). El entorno **dev** usa min ACU bajo en Aurora
@@ -53,4 +53,4 @@ make tf-validate
 ```
 
 `make tf-validate` hace `init -backend=false` + `validate` por entorno; `plan/apply`
-requieren credenciales AWS y el backend `state/` ya desplegado (Fase 3).
+requieren credenciales AWS y el backend `state/` ya desplegado (Paso 6).

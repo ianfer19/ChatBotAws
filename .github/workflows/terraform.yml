@@ -30,7 +30,7 @@ jobs:
       - name: terraform fmt
         run: terraform fmt -check -recursive
 
-      # init sin backend + validate por entorno; en Fase 1 aún no hay .tf y el paso
+      # init sin backend + validate por entorno; hasta el Paso 6 aún no hay .tf y el paso
       # termina sin hacer nada (el bucle solo entra si existen archivos .tf).
       - name: terraform validate por entorno
         run: |

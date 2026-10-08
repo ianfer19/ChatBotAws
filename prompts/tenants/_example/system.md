@@ -1,5 +1,5 @@
 <!--
-Ejemplo de prompt system por tenant (Fase 5). Este archivo NO se despliega: existe para
+Ejemplo de prompt system por tenant (Paso 3 en adelante). Este archivo NO se despliega: existe para
 mostrar la estructura que tendrá cada comercio en Bedrock Prompt Management.
 Variables resueltas por la aplicación antes de enviar el prompt al modelo.
 -->

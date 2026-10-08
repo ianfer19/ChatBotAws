@@ -11,6 +11,14 @@ requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.7",
     "pydantic-settings>=2.2",
+    # Cliente AWS: lo usan los adapters (Bedrock en el Paso 2, DynamoDB/S3 en el 6...).
+    # TODO(verify): hoy se instala 1.36.26; fijar versión mínima al cerrar el Paso 2
+    # (Converse API) tras probarla.
+    "boto3",
+    # Orquestación del agente: solo en `application/` de los slices (Paso 3).
+    # TODO(verify): hoy se instala 1.2.14; fijar versión mínima al cerrar el Paso 3
+    # (grafo de citas).
+    "langgraph",
 ]
 
 [project.optional-dependencies]

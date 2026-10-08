@@ -12,15 +12,15 @@ y sin importar `slices.*` (lo verifica import-linter en CI).
 
 ## Adaptadores
 
-| Paquete | Servicio | Implementa | Fase |
+| Paquete | Servicio | Implementa | Paso |
 |---|---|---|---|
-| `bedrock/` | Amazon Bedrock (modelos, Guardrails, Prompt Management) | `shared.ports.LLMPort` + cliente de guardrails/prompt | 5 |
-| `agentcore/` | Bedrock AgentCore (Runtime, Memory, Gateway, Identity, Policy) | puertos de memoria/gateway | 8 |
-| `dynamodb/` | DynamoDB (tablas operacionales) | puertos de persistencia de contexto/conversación/abuso | 3 |
-| `aurora/` | Aurora PostgreSQL v2 + pgvector (SOLO conocimiento) | `VectorStorePort` de RAG | 3 |
-| `s3/` | S3 (archivo conversaciones y media) | puertos de archivo | 3 |
-| `comprehend/` | Amazon Comprehend (sentimiento) | `SentimentPort` de handoff | 7 |
-| `legacy_backend/` | APIs HTTP del backend `sahagunonline/back` | puertos de negocio (pedidos, citas, catálogo) | 4 |
+| `bedrock/` | Amazon Bedrock (modelos, Guardrails, Prompt Management) | `shared.ports.LLMPort` + cliente de guardrails/prompt | 2 y 13 |
+| `agentcore/` | Bedrock AgentCore (Runtime, Memory, Gateway, Identity, Policy) | puertos de memoria/gateway | 10–12 |
+| `dynamodb/` | DynamoDB (tablas operacionales) | puertos de persistencia de contexto/conversación/abuso | 6 |
+| `aurora/` | Aurora PostgreSQL v2 + pgvector (SOLO conocimiento) | `VectorStorePort` de RAG | 7 |
+| `s3/` | S3 (archivo conversaciones y media) | puertos de archivo | 6 |
+| `comprehend/` | Amazon Comprehend (sentimiento) | `SentimentPort` de handoff | fuera de ruta |
+| `legacy_backend/` | APIs HTTP del backend `sahagunonline/back` | puertos de negocio (pedidos, citas, catálogo) | 5 |
 
 ## Reglas
 
