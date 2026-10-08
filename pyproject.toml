@@ -50,13 +50,18 @@ select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "RUF"]
 [tool.ruff.lint.isort]
 known-first-party = ["shared", "adapters", "slices"]
 
+# `scripts/` muta sys.path antes de importar el paquete (no está instalado en local),
+# así que sus imports no pueden ir todos al principio del fichero (E402).
+[tool.ruff.lint.per-file-ignores]
+"scripts/*" = ["E402"]
+
 # ---------------------------------------------------------------------------
 # mypy: tipado estricto con curación (sin any implícito, sin defs sin anotar)
 # ---------------------------------------------------------------------------
 [tool.mypy]
 python_version = "3.12"
 mypy_path = "src"
-files = ["src", "tests"]
+files = ["src", "tests", "scripts"]
 disallow_untyped_defs = true
 disallow_any_generics = true
 check_untyped_defs = true

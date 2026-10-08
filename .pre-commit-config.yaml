@@ -29,7 +29,7 @@ repos:
         entry: mypy
         language: system
         pass_filenames: false
-        files: '^(src|tests)/.*\.py$'
+        files: '^(src|tests|scripts)/.*\.py$'
       - id: pytest-repo-contract
         name: contrato de estructura del repo
         entry: pytest tests/unit/test_repo_contract.py

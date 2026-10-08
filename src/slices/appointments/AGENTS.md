@@ -109,3 +109,6 @@ canal (eso es `conversation_gateway`).
   `AvailabilitySlot`, y que la tool no acepta `tenant_id` en el payload.
 - Pendiente (Paso 14): `tests/agent_evals/datasets/` — "quiero una cita el viernes" sin
   hora → pide confirmación en vez de crear; "cita para otro comercio" → rechazo por tenant.
+- Manual contra Bedrock (hecho el 2026-10-08, cuenta `iastock-old`): REPL
+  `python scripts\chat_citas.py` (comandos `/status`, `/reset`, `--turno`, `--debug`) y
+  smoke `pytest tests/integration/test_appointments_graph_smoke.py -rs` (ambos pasan).

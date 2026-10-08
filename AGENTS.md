@@ -73,6 +73,8 @@ el Paso 3. La ruta activa es [docs/ROADMAP.md](docs/ROADMAP.md)
 │   ├── contract/              # Contratos entre slices y con el legacy
 │   └── agent_evals/           # Datasets y evaluaciones del agente
 │
+├── scripts/                   # Utilidades de desarrollo (chat_citas.py: REPL del grafo)
+│
 └── .github/workflows/         # CI: quality (lint/tipos/tests/dependencias) + terraform
 ```
 
@@ -134,8 +136,8 @@ arquitectura se degrada silenciosamente. Detalle y justificación:
 ```powershell
 # Windows (PowerShell) — mismos pasos que el Makefile de CI
 pip install -e ".[dev]"          # instalar herramientas de desarrollo
-ruff check src tests             # lint
-ruff format --check src tests    # formato
+ruff check src tests scripts       # lint
+ruff format --check src tests scripts  # formato
 mypy                             # tipos
 pytest                           # tests
 lint-imports                     # regla de dependencia

@@ -8,8 +8,8 @@ definición de "terminado", glosario). Este archivo solo añade lo específico d
 
 ```powershell
 # Windows (PowerShell) — ejecutar antes de dar por terminado cualquier cambio
-ruff check src tests              # lint
-ruff format src tests             # formato (auto-fix)
+ruff check src tests scripts       # lint
+ruff format src tests scripts      # formato (auto-fix)
 mypy                              # tipos
 pytest                            # tests (incluye tests/unit/test_repo_contract.py)
 lint-imports                      # reglas de dependencia entre capas

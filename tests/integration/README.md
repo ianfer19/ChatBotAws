@@ -21,6 +21,19 @@ pytest tests/integration/test_bedrock_smoke.py -v -rs
 
 Verificado el 2026-10-08: `1 passed`.
 
+## Smoke del grafo de citas (Paso 3)
+
+`test_appointments_graph_smoke.py` compila el grafo real con `BedrockLLM` y ejecuta un
+turno de saludo completo (dos llamadas al modelo: interpretar y redactar). Mismo entorno
+y mismas omisiones que el smoke del Paso 2:
+
+```powershell
+pytest tests/integration/test_appointments_graph_smoke.py -v -rs
+```
+
+Para conversar a mano con el mismo grafo está `python scripts\chat_citas.py`
+(REPL con `/status`, `/reset` y `--turno` para un turno único; ver su docstring).
+
 ### Cuentas y acceso a modelos
 
 - `iastock-old`: acceso verificado; el smoke pasa.

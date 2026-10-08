@@ -22,10 +22,10 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Ruff (lint)
-        run: ruff check src tests
+        run: ruff check src tests scripts
 
       - name: Ruff (formato)
-        run: ruff format --check src tests
+        run: ruff format --check src tests scripts
 
       - name: mypy (tipos)
         run: mypy

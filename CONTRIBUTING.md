@@ -12,7 +12,7 @@ con el flujo de trabajo del equipo.
 4. **Calidad local** antes de abrir PR:
 
    ```powershell
-   ruff check src tests; ruff format src tests
+   ruff check src tests scripts; ruff format src tests scripts
    mypy
    pytest
    lint-imports
