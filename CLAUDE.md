@@ -38,8 +38,8 @@ Equivalente en un solo paso (Linux/macOS): `make verify && make tf-fmt`.
 
 ## Contexto del proyecto
 
-- Estado: **Fases 1–2 completadas**; **pasos 1–2** de la ruta completados; paso activo:
-  **3 (LangGraph: grafo de citas)** — ver AGENTS.md §10 y [docs/ROADMAP.md](docs/ROADMAP.md).
+- Estado: **Fases 1–2 completadas**; **pasos 1–3** de la ruta completados; paso activo:
+  **4 (Supervisor + customer_context)** — ver AGENTS.md §10 y [docs/ROADMAP.md](docs/ROADMAP.md).
 - Backend legacy: `C:\Users\ianfe\OneDrive\Documentos\GitHub\sahagunonline\back`
   (solo lectura de referencia: su `AGENTS.md`, `docs/catalogo_endpoints.md` y
   `docs/Architecture.md` explican el sistema actual y el contrato de APIs/tools).

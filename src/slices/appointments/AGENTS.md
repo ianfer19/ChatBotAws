@@ -1,7 +1,8 @@
 # Slice: appointments
 
-> Paso de implementación: **Pasos 3 y 5**. Estado: **definido, sin implementar** (el detalle
-> funcional se completa en su paso; este documento es el contrato previo).
+> Paso de implementación: **Pasos 3 y 5**. Estado: **Paso 3 hecho** — grafo de citas,
+> `AgentState` y las 4 tools sobre dobles en memoria; **Paso 5 pendiente** — solapes,
+> horario, estados canónicos y confirmación previa real.
 
 ## Responsabilidad
 Reservas y citas de los comercios: consultar disponibilidad, crear y cancelar citas y
@@ -30,6 +31,28 @@ canal (eso es `conversation_gateway`).
   `infrastructure/in_memory.py` (`InMemoryAppointmentRepository`, el doble con el que
   corren los tests hasta que exista el adapter real en el Paso 6). `LegacyOpsPort`
   y los contratos expuestos llegan con los Pasos 5 y 11.
+- Definidos en el **Paso 3**: `domain/rules.py` (datos mínimos), `domain/errors.py`
+  (`IncompleteAppointmentData`, `TenantMismatch`) y `application/`
+  (`state.py`, `schemas.py`, `prompts.py`, `tools.py`, `deps.py`, `nodes/`, `graph.py`).
+
+## Grafo (Paso 3)
+- `application/graph.py` → `build_appointment_graph(llm, repo, clock, opening_hours)`.
+  Nodos en `application/nodes/`: `understand` (LLM → JSON validado en
+  `AppointmentProposal`, con reintento único y degradación a aclaración), `validate` +
+  `need_more?` (regla 4), `select_action` (allowlist `ALLOWED_TOOLS`; sin `tool_name` si
+  no aplica), `call_tool` (despacho; un `AppError` de la tool se traduce en `tool_error`),
+  `validate_result` + `needs_confirmation?` (coherencia del resultado y confirmación) y
+  `respond` (redacción con los datos ya decididos).
+- `AgentState` (`application/state.py`): el llamador pone `tenant_id`, `correlation_id`,
+  `user_message` y `history`; el resto lo escriben los nodos (`NotRequired`).
+- Dos llamadas al LLM por turno (interpretar y redactar). **Sin checkpointer**: la
+  ventana de historial y el comercio los aporta el llamador, nunca el modelo
+  (`TODO(decision)`: multi-turno con checkpointer en el Paso 8; confirmación previa
+  real con HITL en los Pasos 5/8 — hoy `create_appointment` guarda `pending` y la
+  respuesta solo pide confirmación).
+- `application/tools.py`: las 4 tools sobre `AppointmentRepositoryPort` en memoria,
+  `ClockPort` y el horario inyectado; la disponibilidad es horario − citas ocupadas −
+  huecos pasados. `TODO(decision)`: zona horaria compartida al conectar Aurora (Paso 6).
 
 ## Tablas y recursos AWS
 | Recurso | Por qué | Paso |
@@ -57,7 +80,7 @@ canal (eso es `conversation_gateway`).
 | Tool | Esquema resumido | Notas de seguridad |
 |---|---|---|
 | `get_availability` | `{date, party_size?}` → `[slot]` | Solo lectura; filtra por el tenant del contexto |
-| `create_appointment` | `{date, time, customer, contact}` → cita | Idempotente por `correlation_id`; exige confirmación previa; timeout al legacy |
+| `create_appointment` | `{date, time, customer, contact}` → cita | Idempotente por `correlation_id`; en el Paso 3 guarda `pending` y la respuesta pide confirmación (HITL real: Pasos 5/8); timeout al legacy (Paso 5) |
 | `cancel_appointment` | `{appointment_id}` → estado | Autoriza por tenant y estado; log de auditoría |
 | `get_opening_hours` | `{}` → horarios | Si procede del conocimiento, delega en RAG con `tenant_id` |
 
@@ -70,13 +93,19 @@ canal (eso es `conversation_gateway`).
 | `LegacyTimeout` | `ops_service` no responde en el timeout | Disculpa al usuario + log error con `correlation_id` |
 | `TenantMismatch` | La cita pertenece a otro tenant | Rechazo genérico sin detalles + log error |
 
+`IncompleteAppointmentData` y `TenantMismatch` existen desde el **Paso 3**
+(`domain/errors.py`); el resto de errores de la tabla llegan con el **Paso 5**.
+
 ## Cómo probarlo
 - `tests/unit/` (Paso 1, hecho): `test_appointments_repository.py` — el doble cumple el
   port, aislamiento por tenant, idempotencia por `correlation_id`, periodo de consulta
   y entidad inmutable.
-- `tests/unit/`: domain de `appointments` — solape rechazado, fecha fuera de horario
-  rechazada y datos incompletos que no llegan a crear la entidad.
-- `tests/contract/`: esquemas de `AppointmentCreate` y `AvailabilitySlot`, y que la
-  tool no acepta `tenant_id` en el payload.
-- `tests/agent_evals/datasets/`: "quiero una cita el viernes" sin hora → pide
-  confirmación en vez de crear; "cita para otro comercio" → rechazo por tenant.
+- `tests/unit/` (Paso 3, hecho): `test_appointments_rules.py` (datos mínimos),
+  `test_appointments_tools.py` (disponibilidad pasada/ocupada, idempotencia,
+  cancelación y aislamiento por tenant) y `test_appointments_graph.py` (nodos sueltos,
+  allowlist sincronizada con `ToolName`, cuatro end-to-end y el negativo: un JSON con
+  `tenant_id` ajeno degrada a aclaración y no ejecuta nada).
+- Pendiente (Paso 5): `tests/contract/` — esquemas de `AppointmentCreate` y
+  `AvailabilitySlot`, y que la tool no acepta `tenant_id` en el payload.
+- Pendiente (Paso 14): `tests/agent_evals/datasets/` — "quiero una cita el viernes" sin
+  hora → pide confirmación en vez de crear; "cita para otro comercio" → rechazo por tenant.

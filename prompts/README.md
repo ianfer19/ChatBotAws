@@ -6,7 +6,8 @@ runtime es Prompt Management; ver [docs/ai/PROMPT_MANAGEMENT.md](../docs/ai/PROM
 ```
 prompts/
 ├── base/                # Plantillas canónicas compartidas por todos los tenants
-│   └── README.md
+│   ├── README.md
+│   └── appointments.md  # Asistente de citas (Paso 3; la carga application/prompts.py)
 └── tenants/
     └── _example/        # Ejemplo de estructura por comercio (plantilla a copiar)
         ├── README.md
@@ -26,4 +27,6 @@ prompts/
 5. Versionado semántico (`v1.2.0`) con rollback en Prompt Management (`TODO(verify)` del
    procedimiento exacto).
 
-Estado: plantillas locales (Fases 1–2); los prompts reales se definen con los agentes (Pasos 3–4).
+Estado: plantillas locales (Fases 1–2); `base/appointments.md` existe desde el **Paso 3**
+(lo carga `slices/appointments/application/prompts.py`); el resto de prompts se define con
+los agentes (Pasos 4–5).

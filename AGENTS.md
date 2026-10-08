@@ -18,8 +18,9 @@ Colombia). El sistema:
   **solo vía tools validadas** contra el backend legacy (`sahagunonline/back`).
 - Protege el sistema con Guardrails, detección de abuso y handoff humano.
 
-**Estado: Fases 1 y 2 completadas** (esqueleto, documentación, CI y kernel `shared`);
-la lógica de negocio aún no existe. La ruta activa es [docs/ROADMAP.md](docs/ROADMAP.md)
+**Estado: Fases 1 y 2 completadas** (esqueleto, documentación, CI y kernel `shared`) y
+**Pasos 1-3 de la ruta** (ports, Bedrock, grafo de citas); la lógica de negocio arranca en
+el Paso 3. La ruta activa es [docs/ROADMAP.md](docs/ROADMAP.md)
 (14 pasos); visión general: [docs/architecture/OVERVIEW.md](docs/architecture/OVERVIEW.md) y §10.
 
 ---
@@ -284,7 +285,7 @@ de las fases históricas 1–9 a los pasos nuevos).
 |---|---|---|
 | 1 | Arquitectura/base: ports (`LLMPort` Converse, `VectorStorePort`, `MemoryStorePort`, repositorios de citas/pedidos), dependencias `boto3`+`langgraph`, ROADMAP | **hecho** |
 | 2 | Bedrock + abstracción de modelos (`adapters/bedrock`, Converse API) | **hecho** |
-| 3 | LangGraph: grafo de citas + `AgentState` en `appointments/application` | pendiente |
+| 3 | LangGraph: grafo de citas + `AgentState` en `appointments/application` | **hecho** |
 | 4 | Supervisor (routing, saludo) + `customer_context` (contexto obligatorio por turno) | pendiente |
 | 5 | Tools + lógica de negocio (citas, pedidos) con dobles en memoria | pendiente |
 | 6 | Infraestructura Terraform base (state, red, DynamoDB, S3, Aurora, IAM, apigw, lambda) | pendiente |
