@@ -67,6 +67,12 @@ warn_unused_ignores = true
 warn_return_any = true
 strict_equality = true
 
+# boto3/botocore no publican py.typed (existe `boto3-stubs`, pero es una dependencia
+# extra): se aceptan sin stubs y su uso queda acotado a `adapters/`.
+[[tool.mypy.overrides]]
+module = ["boto3", "boto3.*", "botocore", "botocore.*"]
+ignore_missing_imports = true
+
 # ---------------------------------------------------------------------------
 # pytest
 # ---------------------------------------------------------------------------
@@ -77,6 +83,7 @@ addopts = "-q --strict-markers"
 markers = [
     "contract: pruebas de contrato entre slices o contra el backend legacy",
     "agent_eval: evaluaciones de comportamiento del agente (datasets)",
+    "integration: contra servicios reales de AWS; en CI se omiten (ven credenciales)",
 ]
 
 # ---------------------------------------------------------------------------

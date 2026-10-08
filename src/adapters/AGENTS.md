@@ -22,6 +22,11 @@ y sin importar `slices.*` (lo verifica import-linter en CI).
 | `comprehend/` | Amazon Comprehend (sentimiento) | `SentimentPort` de handoff | fuera de ruta |
 | `legacy_backend/` | APIs HTTP del backend `sahagunonline/back` | puertos de negocio (pedidos, citas, catálogo) | 5 |
 
+**Estado**: `bedrock/` está implementado desde el **Paso 2** — `BedrockLLM(LLMPort)` sobre la
+Converse API, con `bedrock_model_id` (obligatorio) y `bedrock_timeout_seconds` de `Settings`;
+el cliente de Guardrails/Prompt Management llega en el Paso 13. Las demás carpetas son
+esqueletos que se rellenan en sus pasos.
+
 ## Reglas
 
 1. Un adapter = un paquete con `__init__.py` documentado; los clientes AWS (boto3) se
@@ -46,5 +51,6 @@ y sin importar `slices.*` (lo verifica import-linter en CI).
 
 ## Cómo probarlo
 
-Unit con mocks (moto/`TODO(verify)` de herramienta) en `tests/unit/`; integración real en
-`tests/integration/` solo con credenciales de dev.
+Unit con dobles inyectados por constructor (sin AWS real) en `tests/unit/`; integración real
+en `tests/integration/` solo con credenciales de dev (marker `integration`, auto-omitido en CI).
+El smoke del Paso 2 es `tests/integration/test_bedrock_smoke.py`.

@@ -283,7 +283,7 @@ de las fases históricas 1–9 a los pasos nuevos).
 | Paso | Alcance | Estado |
 |---|---|---|
 | 1 | Arquitectura/base: ports (`LLMPort` Converse, `VectorStorePort`, `MemoryStorePort`, repositorios de citas/pedidos), dependencias `boto3`+`langgraph`, ROADMAP | **hecho** |
-| 2 | Bedrock + abstracción de modelos (`adapters/bedrock`, Converse API) | pendiente |
+| 2 | Bedrock + abstracción de modelos (`adapters/bedrock`, Converse API) | **hecho** |
 | 3 | LangGraph: grafo de citas + `AgentState` en `appointments/application` | pendiente |
 | 4 | Supervisor (routing, saludo) + `customer_context` (contexto obligatorio por turno) | pendiente |
 | 5 | Tools + lógica de negocio (citas, pedidos) con dobles en memoria | pendiente |

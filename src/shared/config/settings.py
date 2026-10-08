@@ -1,26 +1,54 @@
 """Configuración global leída de variables de entorno con Pydantic Settings."""
 
-from typing import Literal
+from typing import Literal, Self
 
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Ajustes del sistema desde el entorno, con prefijo `CHATBOT_`.
 
-    Campos hoy (Fase 2): entorno de despliegue y nivel de log. Cada paso añade los
-    suyos (Bedrock, colas, etc.) en vez de estandarizar configuración que aún no existe.
+    Campos hoy (Paso 2): entorno de despliegue, nivel de log, modelo de Bedrock y
+    timeout de su cliente. Cada paso añade los suyos en vez de estandarizar
+    configuración que aún no existe.
+
+    `bedrock_model_id` es **obligatorio**: sin modelo no hay conversación, así que el
+    proceso falla al arrancar en lugar de fallar en el primer mensaje (fail fast).
+    `TODO(verify)`: fijar versión mínima de `boto3` y precio del modelo (Paso 14).
 
     Example:
-        Con `CHATBOT_ENVIRONMENT=staging` en el entorno:
-        >>> Settings().environment
-        'staging'
+        Con `CHATBOT_BEDROCK_MODEL_ID` en el entorno:
+        >>> settings = Settings(bedrock_model_id="modelo-de-prueba")
+        >>> settings.environment, settings.bedrock_timeout_seconds
+        ('dev', 30)
     """
 
     model_config = SettingsConfigDict(env_prefix="CHATBOT_", extra="ignore")
 
     environment: Literal["dev", "staging", "prod"] = "dev"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+    # Default vacío solo para que la carga desde el entorno funcione: la validación
+    # posterior rechaza el arranque si nadie lo define.
+    bedrock_model_id: str = Field(default="")
+    bedrock_timeout_seconds: int = Field(default=30, ge=1)
+
+    @model_validator(mode="after")
+    def _bedrock_model_id_es_obligatorio(self) -> Self:
+        """Exige modelo de Bedrock antes de arrancar (fail fast).
+
+        Returns:
+            La misma instancia, si el modelo vino del entorno.
+
+        Raises:
+            ValueError: Si `CHATBOT_BEDROCK_MODEL_ID` falta o está vacío; Pydantic lo
+                convierte en `ValidationError` para el llamador.
+        """
+        if not self.bedrock_model_id:
+            raise ValueError(
+                "CHATBOT_BEDROCK_MODEL_ID es obligatorio: sin modelo no hay conversación"
+            )
+        return self
 
 
 def load_settings() -> Settings:
