@@ -127,6 +127,6 @@ def test_entidad_inmutable_y_sin_campos_ajenos() -> None:
     """La cita ya guardada no admite cambios laterales ni campos no previstos."""
     cita = _cita()
     with pytest.raises(PydanticValidationError):
-        cita.status = "cancelled"
+        cita.status = "cancelled"  # pyrefly: ignore[read-only]
     with pytest.raises(PydanticValidationError):
-        Appointment(**{**cita.model_dump(), "price": 10_000})
+        Appointment.model_validate({**cita.model_dump(), "price": 10_000})

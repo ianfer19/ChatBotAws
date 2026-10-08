@@ -61,4 +61,4 @@ def test_contexto_es_inmutable() -> None:
     """El contexto no se muta en caliente: un turno nuevo crea uno nuevo."""
     context = _context()
     with pytest.raises(ValueError):
-        context.tenant_id = "otro"
+        context.tenant_id = "otro"  # pyrefly: ignore[read-only]

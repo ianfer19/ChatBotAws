@@ -179,7 +179,7 @@ def test_llm_result_es_inmutable_y_sin_campos_extra() -> None:
     """El resultado del modelo no se puede alterar tras leerse ni recibir campos ajenos."""
     resultado = LLMResult(text="ok")
     with pytest.raises(PydanticValidationError):
-        resultado.text = "otro"
+        resultado.text = "otro"  # pyrefly: ignore[read-only]
     with pytest.raises(PydanticValidationError):
         LLMResult(text="ok", model_id="claude")  # type: ignore[call-arg]
 

@@ -101,13 +101,13 @@ def test_order_no_expone_la_hora_del_pedido() -> None:
 def test_linea_de_pedido_con_cantidad_no_positiva_es_invalida() -> None:
     """Cantidades cero o negativas no llegan ni al repositorio."""
     with pytest.raises(PydanticValidationError):
-        OrderItem(sku="PEPPERONI-1", quantity=0)
+        OrderItem.model_validate({"sku": "PEPPERONI-1", "quantity": 0})
 
 
 def test_entidad_inmutable_y_sin_campos_ajenos() -> None:
     """El pedido ya guardado no admite cambios laterales ni campos no previstos."""
     pedido = _pedido()
     with pytest.raises(PydanticValidationError):
-        pedido.status = "paid"
+        pedido.status = "paid"  # pyrefly: ignore[read-only]
     with pytest.raises(PydanticValidationError):
-        Order(**{**pedido.model_dump(), "price": 50_000})
+        Order.model_validate({**pedido.model_dump(), "price": 50_000})
