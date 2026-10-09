@@ -38,9 +38,9 @@ Equivalente en un solo paso (Linux/macOS): `make verify && make tf-fmt`.
 
 ## Contexto del proyecto
 
-- Estado: **Fases 1–2 completadas**; **pasos 1–3** de la ruta completados; paso activo:
-  **4 (Supervisor + customer_context)** — ver AGENTS.md §10 y [docs/ROADMAP.md](docs/ROADMAP.md).
+- Estado: **Fases 1–2 completadas**; **pasos 1–4** de la ruta completados; paso activo:
+  **5 (Tools + lógica de negocio)** — ver AGENTS.md §10 y [docs/ROADMAP.md](docs/ROADMAP.md).
 - Backend legacy: `C:\Users\ianfe\OneDrive\Documentos\GitHub\sahagunonline\back`
   (solo lectura de referencia: su `AGENTS.md`, `docs/catalogo_endpoints.md` y
   `docs/Architecture.md` explican el sistema actual y el contrato de APIs/tools).
-- Decisiones ya cerradas: ADR 0001–0009 en `docs/adr/`; retención (0007) fuera de la ruta (ROADMAP §4).
+- Decisiones ya cerradas: ADR 0001–0010 en `docs/adr/`; retención (0007) fuera de la ruta (ROADMAP §4).

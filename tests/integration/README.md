@@ -2,7 +2,8 @@
 
 Pruebas contra servicios reales de AWS (Bedrock desde el **Paso 2**; DynamoDB, S3 y
 localstack desde el **Paso 6**). Corren con credenciales de dev: llevan el marker
-`integration` y en CI se omiten (sin credenciales no hay con qué firmar). **Pasos 2 y 6+.**
+`integration` y en CI se omiten (sin credenciales no hay con qué firmar).
+**Pasos 2, 3, 4 y 6+.**
 
 Para ver el motivo de cada omisión: `pytest tests/integration -rs`.
 
@@ -32,7 +33,21 @@ pytest tests/integration/test_appointments_graph_smoke.py -v -rs
 ```
 
 Para conversar a mano con el mismo grafo está `python scripts\chat_citas.py`
-(REPL con `/status`, `/reset` y `--turno` para un turno único; ver su docstring).
+(REPL con `/status`, `/reset` y `--turno` para un turno único; desde el **Paso 4** el
+turno pasa por el supervisor antes de llegar a las citas; ver su docstring).
+
+## Smoke del supervisor (Paso 4)
+
+`test_supervisor_smoke.py` compone el supervisor real (lector de contexto + grafo de
+citas anidado, ADR 0010) y ejecuta dos turnos: un saludo, que debe quedarse en el
+supervisor, y una petición de cita, que debe enrutarse al especialista. Mismo entorno
+y mismas omisiones que los smokes anteriores:
+
+```powershell
+pytest tests/integration/test_supervisor_smoke.py -v -rs
+```
+
+Verificado el 2026-10-08: `2 passed` (perfil `iastock-old`).
 
 ### Cuentas y acceso a modelos
 

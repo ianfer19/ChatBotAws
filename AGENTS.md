@@ -19,8 +19,8 @@ Colombia). El sistema:
 - Protege el sistema con Guardrails, detección de abuso y handoff humano.
 
 **Estado: Fases 1 y 2 completadas** (esqueleto, documentación, CI y kernel `shared`) y
-**Pasos 1-3 de la ruta** (ports, Bedrock, grafo de citas); la lógica de negocio arranca en
-el Paso 3. La ruta activa es [docs/ROADMAP.md](docs/ROADMAP.md)
+**Pasos 1-4 de la ruta** (ports, Bedrock, grafo de citas, supervisor + contexto); la
+lógica de negocio arranca en el Paso 5. La ruta activa es [docs/ROADMAP.md](docs/ROADMAP.md)
 (14 pasos); visión general: [docs/architecture/OVERVIEW.md](docs/architecture/OVERVIEW.md) y §10.
 
 ---
@@ -253,6 +253,7 @@ Mismo patrón para cualquier regla crítica: ninguna depende solo del prompt.
 | D4 | LangGraph + Bedrock hoy; AgentCore con adopción modular (Runtime → Memory → Gateway → Identity+Policy) | [0004](docs/adr/0004-orquestacion-langgraph-agentcore-modular.md) |
 | D5 | `tenant_id` = `store_id` legado, resuelto en el gateway y propagado en todo el contexto | [0003](docs/adr/0003-multi-tenancy-tenant-en-gateway.md) |
 | D6 | Retención de conversaciones/media: **pendiente**, fuera de la ruta (ROADMAP §4) | [0007](docs/adr/0007-retencion-de-conversaciones-y-media.md) |
+| D7 | Supervisor compone a los especialistas por invocación (nodo anidado tras un port) | [0010](docs/adr/0010-composicion-de-grafos-por-invocacion.md) |
 
 Requisitos de corrección que deben mantenerse siempre (con sus tests):
 **saludo** → intención `greeting`/`smalltalk` con ruta propia y saludo neutral, sin enrutar
@@ -288,7 +289,7 @@ de las fases históricas 1–9 a los pasos nuevos).
 | 1 | Arquitectura/base: ports (`LLMPort` Converse, `VectorStorePort`, `MemoryStorePort`, repositorios de citas/pedidos), dependencias `boto3`+`langgraph`, ROADMAP | **hecho** |
 | 2 | Bedrock + abstracción de modelos (`adapters/bedrock`, Converse API) | **hecho** |
 | 3 | LangGraph: grafo de citas + `AgentState` en `appointments/application` | **hecho** |
-| 4 | Supervisor (routing, saludo) + `customer_context` (contexto obligatorio por turno) | pendiente |
+| 4 | Supervisor (routing, saludo) + `customer_context` (contexto obligatorio por turno) | **hecho** |
 | 5 | Tools + lógica de negocio (citas, pedidos) con dobles en memoria | pendiente |
 | 6 | Infraestructura Terraform base (state, red, DynamoDB, S3, Aurora, IAM, apigw, lambda) | pendiente |
 | 7 | RAG + Aurora/pgvector (`knowledge_rag`, `VectorStorePort` → `adapters/aurora`) | pendiente |

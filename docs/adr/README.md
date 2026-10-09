@@ -83,3 +83,4 @@ Reglas complementarias:
 | 0007 | [Retención de conversaciones y media](0007-retencion-de-conversaciones-y-media.md) | Pendiente | 2026-10-07 |
 | 0008 | [Contextual grounding en el chatbot](0008-contextual-grounding-en-chatbot.md) | Aceptado | 2026-10-07 |
 | 0009 | [ChannelPort único para los canales Meta](0009-channelport-unico-canales-meta.md) | Aceptado | 2026-10-07 |
+| 0010 | [Composición de grafos por invocación](0010-composicion-de-grafos-por-invocacion.md) | Aceptado | 2026-10-08 |
