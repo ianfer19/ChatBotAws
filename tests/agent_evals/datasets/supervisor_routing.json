@@ -1,0 +1,106 @@
+{
+  "descripcion": "Casos de enrutado del supervisor (Paso 4). Fuente versionada de la regresion obligatoria de saludo (requisito 7.2): el ejecutor usa un LLM doble con la clasificacion de cada caso; el runner con modelo real llega en el Paso 14. Datos sinteticos, sin clientes reales.",
+  "version": 1,
+  "casos": [
+    {
+      "id": "greeting_01",
+      "categoria": "routing",
+      "entrada": {
+        "tenant": "Sede_Elite_01",
+        "mensaje": "Hola, buenos dias",
+        "historial": []
+      },
+      "llm": { "intent": "greeting", "confidence": 0.97 },
+      "esperado": {
+        "target": "supervisor",
+        "reply": "saludo",
+        "route_error": null,
+        "invoca_especialista": false
+      }
+    },
+    {
+      "id": "greeting_02",
+      "categoria": "routing",
+      "entrada": {
+        "tenant": "Sede_Elite_01",
+        "mensaje": "Buenas, como estan?",
+        "historial": [
+          { "role": "assistant", "content": "Hola, en que te ayudo?" },
+          { "role": "user", "content": "Queria preguntar algo" }
+        ]
+      },
+      "llm": { "intent": "smalltalk", "confidence": 0.9 },
+      "esperado": {
+        "target": "supervisor",
+        "reply": "saludo",
+        "route_error": null,
+        "invoca_especialista": false
+      }
+    },
+    {
+      "id": "appointments_01",
+      "categoria": "routing",
+      "entrada": {
+        "tenant": "Sede_Elite_01",
+        "mensaje": "Quiero una cita el viernes",
+        "historial": []
+      },
+      "llm": { "intent": "appointments", "confidence": 0.95 },
+      "esperado": {
+        "target": "appointments",
+        "reply": "especialista",
+        "route_error": null,
+        "invoca_especialista": true
+      }
+    },
+    {
+      "id": "orders_01",
+      "categoria": "routing",
+      "entrada": {
+        "tenant": "Sede_Elite_01",
+        "mensaje": "Quiero hacer un pedido de pizza",
+        "historial": []
+      },
+      "llm": { "intent": "orders", "confidence": 0.93 },
+      "esperado": {
+        "target": "orders",
+        "reply": null,
+        "route_error": null,
+        "invoca_especialista": false
+      }
+    },
+    {
+      "id": "allowed_bots_01",
+      "categoria": "entitlements",
+      "entrada": {
+        "tenant": "Sede_Elite_01",
+        "mensaje": "Quiero una cita",
+        "historial": [],
+        "allowed_bots": ["sales", "faq"]
+      },
+      "llm": { "intent": "appointments", "confidence": 0.99 },
+      "esperado": {
+        "target": null,
+        "reply": "servicio_no_disponible",
+        "route_error": "intent_not_allowed",
+        "invoca_especialista": false
+      }
+    },
+    {
+      "id": "ambiguous_01",
+      "categoria": "ambiguedad",
+      "entrada": {
+        "tenant": "Sede_Elite_01",
+        "mensaje": "eso",
+        "historial": []
+      },
+      "llm": { "intent": "faq", "confidence": 0.2 },
+      "esperado": {
+        "target": null,
+        "reply": "no_entendido",
+        "route_error": "ambiguous_intent",
+        "invoca_especialista": false
+      }
+    }
+  ]
+}

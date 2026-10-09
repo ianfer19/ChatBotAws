@@ -27,11 +27,11 @@ el dominio no importa nada externo (salvo stdlib, pydantic y `shared`).
 | Slice | Responsabilidad | Paso | Estado |
 |---|---|---|---|
 | `conversation_gateway` | Entrada de mensajes Meta (3 canales), verificación/firma, `correlation_id`, resolución de tenant, respuesta al canal | 9 | definido |
-| `supervisor` | Router de intención: saludo/smalltalk (ruta propia), ventas, citas, pedidos, FAQ | 4 | definido |
-| `customer_context` | Contexto del cliente por turno (`get_customer_context`) y su actualización | 4 | definido |
+| `supervisor` | Router de intención: saludo/smalltalk (ruta propia), ventas, citas, pedidos, FAQ | 4 | implementado |
+| `customer_context` | Contexto del cliente por turno (`get_customer_context`) y su actualización | 4 | implementado |
 | `tenant_prompts` | Prompts por tenant desde Prompt Management con fallback y rollback | fuera de ruta | definido |
 | `knowledge_rag` | Retrieval sobre Aurora+pgvector y respuesta fundamentada con grounding | 7 | definido |
-| `appointments` | Reservas/citas con confirmación y validación de horarios | 3 y 5 | definido |
+| `appointments` | Reservas/citas con confirmación y validación de horarios | 3 y 5 | Paso 3 hecho |
 | `orders` | Pedidos: carrito, estado y la regla inmutable de la hora | 5 | definido |
 | `sentiment_handoff` | Sentimiento + reglas → `human_takeover` | fuera de ruta | definido |
 | `abuse_protection` | Detección de abuso y bloqueo temporal con TTL | fuera de ruta | definido |
