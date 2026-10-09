@@ -35,7 +35,7 @@ def _pedido(
         id=order_id,
         tenant_id=tenant_id,
         items=(OrderItem(sku="PEPPERONI-1", quantity=2),),
-        status="created",
+        status="ABIERTA",
         created_at=AHORA,
         correlation_id=correlation_id,
     )
@@ -108,6 +108,6 @@ def test_entidad_inmutable_y_sin_campos_ajenos() -> None:
     """El pedido ya guardado no admite cambios laterales ni campos no previstos."""
     pedido = _pedido()
     with pytest.raises(PydanticValidationError):
-        pedido.status = "paid"  # pyrefly: ignore[read-only]
+        pedido.status = "paid"  # type: ignore[assignment]  # pyrefly: ignore[read-only]
     with pytest.raises(PydanticValidationError):
         Order.model_validate({**pedido.model_dump(), "price": 50_000})

@@ -21,9 +21,13 @@ class Deps:
         context_reader: Lector del contexto de cliente (tool de `customer_context`).
         allowed_bots: Entitlements del comercio: bots que tiene activados.
         appointments_graph: Grafo de citas ya compilado (invocado por `route_appointments`).
+        orders_graph: Grafo de pedidos compilado (invocado por `route_orders`);
+            `None` hasta que la composición lo inyecte (Fase 3 del Paso 5): sin él,
+            los pedidos caen en `route_pending`.
     """
 
     llm: LLMPort
     context_reader: ContextReaderPort
     allowed_bots: frozenset[AgentName]
     appointments_graph: SpecialistGraphPort
+    orders_graph: SpecialistGraphPort | None = None

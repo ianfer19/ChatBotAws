@@ -2,7 +2,9 @@
 
 > Paso de implementación: **Paso 4**. Estado: **implementado** — clasificación de
 > intención, ruta propia de saludo, `allowed_bots`, contexto obligatorio por turno y
-> nodo anidado que invoca el grafo de citas. Handoff y abuso (`sentiment_handoff`,
+> nodo anidado que invoca el grafo de citas. **Fase 3 del Paso 5**: el nodo anidado
+> `route_orders` invoca el grafo de pedidos cuando la composición lo inyecta
+> (`orders_graph=None` → `route_pending`). Handoff y abuso (`sentiment_handoff`,
 > `abuse_protection`) siguen fuera de la ruta (ROADMAP §4).
 
 ## Responsabilidad
@@ -25,14 +27,16 @@ tools de negocio.
 ## Grafo (Paso 4)
 
 - `application/graph.py` → `build_supervisor_graph(llm, context_reader, allowed_bots,
-  appointments_graph)`. Nodos en `application/nodes/`:
+  appointments_graph, orders_graph=None)`. Nodos en `application/nodes/`:
   `load_context` (exige `history`; lee el contexto con los ids del mensaje y falla si
   no lo hay), `classify` (LLM → JSON `SupervisorDecision` con reintento; proveedor caído
   → palabras clave con log; salida ilegible → `confidence=0.0`), `decide`
   (`resolve_route` del dominio; sus errores se traducen a `reply` + `route_error`),
-  `greet` (saludo neutral propio), `route_appointments` (invoca el grafo de citas ya
-  compilado, ADR 0010) y `route_pending` (deja el `RoutedTurn` para ventas/pedidos/faq,
-  grafos aún no construidos).
+  `greet` (saludo neutral propio), `route_appointments` y `route_orders` (invocan el
+  grafo de citas/pedidos ya compilado, ADR 0010) y `route_pending` (deja el `RoutedTurn`
+  para ventas/faq y para pedidos cuando `orders_graph` no está inyectado).
+  La ruta condicional `ruta_tras_decidir` solo manda a `route_orders` si el grafo de
+  pedidos existe; en caso contrario va a `route_pending` (retrocompatible).
 - `SupervisorState` (`application/state.py`): el llamador pone `message` e `history`;
   el resto lo escriben los nodos (`NotRequired`).
 - El prompt del clasificador siempre incluye el bloque de contexto y la ventana de
@@ -101,7 +105,9 @@ responde con el saludo plantilla del tenant.
   saludo nunca a ventas, `allowed_bots`, umbral, palabras clave, saludo) y
   `tests/unit/test_supervisor_graph.py` (nodos sueltos, prompt con contexto+historial,
   turnos sin contexto/historial fallan, saludo sin invocar a nadie, citas invocan al
-  especialista conservando ids, fallo de Bedrock → palabras clave).
+  especialista conservando ids, fallo de Bedrock → palabras clave; Fase 3 del Paso 5:
+  pedidos invocan `route_orders` con `conversation_id` compuesto, sin `orders_graph`
+  caen en `route_pending` y `ruta_tras_decidir` distingue ambas rutas).
 - Eval (hecho): `tests/agent_evals/datasets/supervisor_routing.json` con su ejecutor
   `tests/agent_evals/test_supervisor_dataset.py` (`greeting_01/02`, `appointments_01`,
   `orders_01`, `allowed_bots_01`, `ambiguous_01`); el build falla si el saludo enruta

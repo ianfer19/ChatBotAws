@@ -11,7 +11,7 @@ from shared.errors import ToolError
 from shared.ports import LLMMessage, LLMResult
 from slices.supervisor.application.deps import Deps
 from slices.supervisor.application.graph import build_supervisor_graph
-from slices.supervisor.application.nodes import classify, load_context
+from slices.supervisor.application.nodes import classify, load_context, ruta_tras_decidir
 from slices.supervisor.application.state import SupervisorState
 from slices.supervisor.domain.errors import MissingTurnInputsError
 from slices.supervisor.domain.routing import saludo
@@ -24,6 +24,7 @@ AHORA = datetime(2026, 3, 2, 8, 0)
 JSON_SALUDO = '{"intent": "greeting", "confidence": 0.97}'
 JSON_CITA = '{"intent": "appointments", "confidence": 0.95}'
 JSON_VENTAS = '{"intent": "sales", "confidence": 0.91}'
+JSON_PEDIDOS = '{"intent": "orders", "confidence": 0.94}'
 JSON_BAJA = '{"intent": "faq", "confidence": 0.2}'
 
 _MSG_SIN_RESPUESTA = "No pude preparar la respuesta. ¿Puedes repetir tu mensaje?"
@@ -217,6 +218,8 @@ def _deps(
     lector: _LectorContexto,
     bots: frozenset[AgentName] = BOTS,
     especialista: _EspecialistaEspia | None = None,
+    orders_especialista: _EspecialistaEspia | None = None,
+    con_orders: bool = True,
 ) -> Deps:
     """Construye las dependencias de los nodos con dobles.
 
@@ -225,6 +228,8 @@ def _deps(
         lector: Doble del lector de contexto.
         bots: Entitlements del comercio de prueba.
         especialista: Doble del grafo de citas (se crea uno si no viene).
+        orders_especialista: Doble del grafo de pedidos (se crea uno si no viene).
+        con_orders: Si es `False`, no se inyecta grafo de pedidos (`orders_graph=None`).
 
     Returns:
         Dependencias listas para los nodos sueltos.
@@ -234,6 +239,9 @@ def _deps(
         context_reader=lector,
         allowed_bots=bots,
         appointments_graph=especialista or _EspecialistaEspia(),
+        orders_graph=(orders_especialista or _EspecialistaEspia("Respuesta de pedidos"))
+        if con_orders
+        else None,
     )
 
 
@@ -243,8 +251,10 @@ def _grafo(
     con_contexto: bool = True,
     bots: frozenset[AgentName] = BOTS,
     especialista: _EspecialistaEspia | None = None,
+    orders_especialista: _EspecialistaEspia | None = None,
+    con_orders: bool = True,
     falla: bool = False,
-) -> tuple[Any, _FakeLLM, _LectorContexto, _EspecialistaEspia]:
+) -> tuple[Any, _FakeLLM, _LectorContexto, _EspecialistaEspia, _EspecialistaEspia | None]:
     """Grafo compilado con todos los dobles a la vista.
 
     Args:
@@ -252,21 +262,25 @@ def _grafo(
         con_contexto: Si es `False`, el lector devuelve `None` («turno sin contexto»).
         bots: Entitlements del comercio.
         especialista: Doble del grafo de citas reutilizable entre tests.
+        orders_especialista: Doble del grafo de pedidos reutilizable entre tests.
+        con_orders: Si es `False`, el grafo se compone sin grafo de pedidos.
         falla: Si es `True`, el LLM falla siempre (Bedrock caído).
 
     Returns:
-        Tupla (grafo, llm, lector, especialista).
+        Tupla (grafo, llm, lector, especialista, orders_especialista o `None`).
     """
     llm = _FakeLLM(salidas, falla=falla)
     lector = _LectorContexto(_contexto() if con_contexto else None)
     spy = especialista or _EspecialistaEspia()
+    spy_orders = orders_especialista or _EspecialistaEspia("Respuesta de pedidos")
     grafo = build_supervisor_graph(
         llm=llm,
         context_reader=lector,
         allowed_bots=bots,
         appointments_graph=spy,
+        orders_graph=spy_orders if con_orders else None,
     )
-    return grafo, llm, lector, spy
+    return grafo, llm, lector, spy, spy_orders if con_orders else None
 
 
 # --------------------------------------------------------------------- load_context
@@ -282,14 +296,14 @@ def test_load_context_inyecta_el_contexto_y_lee_los_ids_del_mensaje() -> None:
 
 def test_turno_sin_historial_falla() -> None:
     """Regresión 7.2: un turno sin ventana de historial no avanza ni clasifica."""
-    grafo, _, _, _ = _grafo([JSON_SALUDO])
+    grafo, _, _, _, _ = _grafo([JSON_SALUDO])
     with pytest.raises(MissingTurnInputsError):
         grafo.invoke(_turno("hola", con_historial=False))
 
 
 def test_turno_sin_contexto_falla() -> None:
     """Regresión 7.2: un turno cuyo lector devuelve `None` falla en el primer nodo."""
-    grafo, _, _, _ = _grafo([JSON_SALUDO], con_contexto=False)
+    grafo, _, _, _, _ = _grafo([JSON_SALUDO], con_contexto=False)
     with pytest.raises(MissingTurnInputsError):
         grafo.invoke(_turno("hola"))
 
@@ -310,7 +324,7 @@ def test_classify_directo_sin_contexto_ni_historial_falla() -> None:
 
 def test_prompt_del_clasificador_lleva_contexto_e_historial() -> None:
     """Todo turno llega al modelo con el bloque de contexto y la ventana completa."""
-    grafo, llm, _, _ = _grafo([JSON_SALUDO])
+    grafo, llm, _, _, _ = _grafo([JSON_SALUDO])
     grafo.invoke(_turno("Hola, buenos días"))
     system = llm.calls[0]["system"]
     mensajes = llm.calls[0]["messages"]
@@ -321,7 +335,7 @@ def test_prompt_del_clasificador_lleva_contexto_e_historial() -> None:
 
 def test_json_ilegible_dos_veces_cae_en_ruta_segura() -> None:
     """Dos salidas que no son JSON → decisión ambigua y respuesta honesta, sin acciones."""
-    grafo, llm, _, spy = _grafo(["hola", "sigue sin ser json"])
+    grafo, llm, _, spy, _ = _grafo(["hola", "sigue sin ser json"])
     estado = grafo.invoke(_turno("algo raro"))
     assert len(llm.calls) == 2
     assert estado["route_error"] == "ambiguous_intent"
@@ -331,7 +345,7 @@ def test_json_ilegible_dos_veces_cae_en_ruta_segura() -> None:
 
 def test_fallo_de_bedrock_usa_palabras_clave(caplog: pytest.LogCaptureFixture) -> None:
     """Proveedor caído → clasificación por palabras clave con log, sin tumbar el turno."""
-    grafo, _, _, spy = _grafo(["nunca se usa"], falla=True)
+    grafo, _, _, spy, _ = _grafo(["nunca se usa"], falla=True)
     with caplog.at_level("WARNING"):
         estado = grafo.invoke(_turno("Quiero una cita el viernes"))
     assert estado["target"] == "appointments"
@@ -344,7 +358,7 @@ def test_fallo_de_bedrock_usa_palabras_clave(caplog: pytest.LogCaptureFixture) -
 
 def test_saludo_responde_al_supervisor_sin_invocar_a_nadie() -> None:
     """Regresión 7.2: el saludo nunca enruta a ventas ni invoca especialistas/tools."""
-    grafo, _, lector, spy = _grafo([JSON_SALUDO], bots=frozenset())
+    grafo, _, lector, spy, _ = _grafo([JSON_SALUDO], bots=frozenset())
     estado = grafo.invoke(_turno("Hola, buenos días"))
     assert estado["reply"] == saludo(TENANT)
     assert estado["target"] == "supervisor"
@@ -355,7 +369,7 @@ def test_saludo_responde_al_supervisor_sin_invocar_a_nadie() -> None:
 
 def test_smalltalk_tambien_tiene_ruta_propia() -> None:
     """`smalltalk` comparte la ruta del saludo: respuesta neutral del supervisor."""
-    grafo, _, _, spy = _grafo(['{"intent": "smalltalk", "confidence": 0.9}'], bots=frozenset())
+    grafo, _, _, spy, _ = _grafo(['{"intent": "smalltalk", "confidence": 0.9}'], bots=frozenset())
     estado = grafo.invoke(_turno("gracias, que estés bien"))
     assert estado["target"] == "supervisor"
     assert estado["reply"] == saludo(TENANT)
@@ -368,7 +382,7 @@ def test_smalltalk_tambien_tiene_ruta_propia() -> None:
 def test_turno_de_citas_invoca_el_grafo_y_conserva_ids() -> None:
     """La ruta de citas ejecuta el especialista y devuelve su respuesta y `RoutedTurn`."""
     especialista = _EspecialistaEspia("Aquí tienes los huecos del lunes")
-    grafo, _, _, _ = _grafo([JSON_CITA], especialista=especialista)
+    grafo, _, _, _, _ = _grafo([JSON_CITA], especialista=especialista)
     estado = grafo.invoke(_turno("Quiero una cita"))
     assert especialista.calls == [
         {
@@ -388,7 +402,7 @@ def test_turno_de_citas_invoca_el_grafo_y_conserva_ids() -> None:
 
 def test_especialista_sin_respuesta_degrada_a_mensaje_honesto() -> None:
     """Si el especialista no redacta, el canal nunca recibe un turno vacío."""
-    grafo, _, _, _ = _grafo([JSON_CITA], especialista=_EspecialistaEspia(None))
+    grafo, _, _, _, _ = _grafo([JSON_CITA], especialista=_EspecialistaEspia(None))
     estado = grafo.invoke(_turno("Quiero una cita"))
     assert estado["reply"] == _MSG_SIN_RESPUESTA
     assert estado["routed"].target == "appointments"
@@ -396,7 +410,7 @@ def test_especialista_sin_respuesta_degrada_a_mensaje_honesto() -> None:
 
 def test_ventas_enruta_al_agente_sin_respuesta_del_supervisor() -> None:
     """`sales` deja el `RoutedTurn` listo para el futuro agente, sin reply propio."""
-    grafo, _, _, spy = _grafo([JSON_VENTAS])
+    grafo, _, _, spy, _ = _grafo([JSON_VENTAS])
     estado = grafo.invoke(_turno("Quiero comprar dos sillas"))
     assert estado["target"] == "sales"
     assert estado["routed"].target == "sales"
@@ -410,7 +424,7 @@ def test_ventas_enruta_al_agente_sin_respuesta_del_supervisor() -> None:
 def test_bot_no_habilitado_responde_sin_invocar() -> None:
     """Comercio sin citas: respuesta del supervisor y cero llamadas al especialista."""
     bots: frozenset[AgentName] = frozenset({"sales", "faq"})
-    grafo, _, _, spy = _grafo([JSON_CITA], bots=bots)
+    grafo, _, _, spy, _ = _grafo([JSON_CITA], bots=bots)
     estado = grafo.invoke(_turno("Quiero una cita"))
     assert estado["route_error"] == "intent_not_allowed"
     assert _MSG_NO_DISPONIBLE_PARTE in estado["reply"]
@@ -420,8 +434,53 @@ def test_bot_no_habilitado_responde_sin_invocar() -> None:
 
 def test_confianza_baja_responde_sin_invocar() -> None:
     """Confianza bajo el umbral → ruta segura con respuesta honesta, sin acciones."""
-    grafo, _, _, spy = _grafo([JSON_BAJA])
+    grafo, _, _, spy, _ = _grafo([JSON_BAJA])
     estado = grafo.invoke(_turno("eso"))
     assert estado["route_error"] == "ambiguous_intent"
     assert _MSG_NO_ENTENDI_PARTE in estado["reply"]
     assert spy.calls == []
+
+
+# ------------------------------------------------------------------------ pedidos (Fase 3)
+
+
+def test_turno_de_pedidos_invoca_el_grafo_de_orders() -> None:
+    """La ruta de pedidos ejecuta su especialista con los ids resueltos en el supervisor."""
+    spy_orders = _EspecialistaEspia("Tu pedido se armó.")
+    grafo, _, _, spy, _ = _grafo([JSON_PEDIDOS], orders_especialista=spy_orders)
+    estado = grafo.invoke(_turno("Quiero pedir unas alitas"))
+    assert spy.calls == []
+    assert spy_orders.calls == [
+        {
+            "tenant_id": TENANT,
+            "correlation_id": "corr-1",
+            "conversation_id": "whatsapp:57300111111",
+            "user_message": "Quiero pedir unas alitas",
+            "history": _historial(),
+        }
+    ]
+    assert estado["reply"] == "Tu pedido se armó."
+    assert estado["routed"].target == "orders"
+    assert estado["routed"].intent == "orders"
+    assert estado["routed"].message.tenant_id == TENANT
+
+
+def test_pedidos_sin_grafo_cableado_dejan_el_turno_en_pendiente() -> None:
+    """Sin `orders_graph` (composición previa) el turno queda enrutado y sin reply."""
+    grafo, _, _, spy, _ = _grafo([JSON_PEDIDOS], con_orders=False)
+    estado = grafo.invoke(_turno("Quiero pedir unas alitas"))
+    assert spy.calls == []
+    assert estado["routed"].target == "orders"
+    assert estado["routed"].intent == "orders"
+    assert "reply" not in estado
+    assert "route_error" not in estado
+
+
+def test_ruta_tras_decidir_solo_manda_a_pedidos_si_hay_grafo() -> None:
+    """La ruta condicional distingue `route_orders` de `route_pending` según el DI."""
+    lector = _LectorContexto(_contexto())
+    con_grafo = _deps(_FakeLLM([]), lector=lector)
+    sin_grafo = _deps(_FakeLLM([]), lector=lector, con_orders=False)
+    turno = SupervisorState(message=_mensaje("Quiero pedir"), target="orders")
+    assert ruta_tras_decidir(turno, deps=con_grafo) == "route_orders"
+    assert ruta_tras_decidir(turno, deps=sin_grafo) == "route_pending"

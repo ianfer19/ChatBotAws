@@ -6,7 +6,7 @@
 > [ROADMAP §1 fila 5](../ROADMAP.md). Decisiones de alcance: ADR
 > [0011](../adr/0011-confirmacion-por-politica-con-drafts.md).
 >
-> **Estado global: Fase 2 de 5 completada; siguiente: Fase 3 (orders).**
+> **Estado global: Fase 3 de 5 completada; siguiente: Fase 4 (router de confirmación).**
 
 ## Decisiones cerradas con el usuario (2026-10-09)
 
@@ -36,13 +36,16 @@
 
 ## Fase 3 — orders: dominio + tools + grafo + enlace al supervisor
 
-- [ ] `domain`: carrito, mínimo, horario de cocina, disponibilidad, `PaymentRejected`,
+- [x] `domain`: carrito, mínimo, horario de cocina, disponibilidad, `PaymentRejected`,
       `LegacyTimeout`, política `decide`, estados canónicos (`TODO(verify)` en legacy).
-- [ ] `CatalogPort` + doble en memoria (precios sintéticos; jamás del LLM).
-- [ ] Tools `search_products`/`get_menu`/`get_order_status`/`propose_order`.
-- [ ] Grafo `build_order_graph` (espejo de citas) + `prompts/base/orders.md`.
-- [ ] Supervisor: `route_orders` + `orders_graph` en `build_supervisor_graph` (ADR 0010).
-- [ ] Regla crítica: sin tool de hora (capas 1–2 con test; 3–5 → Pasos 11/13).
+- [x] `CatalogPort` + doble en memoria (precios sintéticos; jamás del LLM).
+- [x] Tools `search_products`/`get_menu`/`get_order_status`/`propose_order`.
+- [x] Grafo `build_order_graph` (espejo de citas) + `prompts/base/orders.md`.
+- [x] Supervisor: `route_orders` + `orders_graph` en `build_supervisor_graph` (ADR 0010).
+- [x] Regla crítica: sin tool de hora (capas 1–2 con test; 3–5 → Pasos 11/13).
+- [x] Tests: `test_orders_{rules,policy,tools,drafts,graph}.py`,
+      `tests/contract/test_orders_tools_contract.py` y casos `route_orders`/
+      `route_pending` en `test_supervisor_graph.py`.
 
 ## Fase 4 — router de confirmación + allowlist por tenant
 
