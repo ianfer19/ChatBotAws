@@ -175,13 +175,11 @@ def _deps(
         Tupla con las dependencias y su repositorio.
     """
     repositorio = repo if repo is not None else InMemoryAppointmentRepository()
+    reloj = _RelojFijo(datetime(2026, 3, 2, 8, 0))
     deps = Deps(
         llm=llm,
-        tools=AppointmentTools(
-            repo=repositorio,
-            clock=_RelojFijo(datetime(2026, 3, 2, 8, 0)),
-            opening_hours=(LUNES,),
-        ),
+        tools=AppointmentTools(repo=repositorio, clock=reloj, opening_hours=(LUNES,)),
+        clock=reloj,
     )
     return deps, repositorio
 
@@ -279,6 +277,19 @@ def test_understand_reintenta_si_la_salida_no_es_json() -> None:
     assert len(llm.calls) == 2
     correccion = llm.calls[1]["messages"][-1]
     assert isinstance(correccion, LLMMessage) and "JSON válido" in correccion.content
+
+
+def test_prompt_lleva_la_fecha_actual_para_resolver_relativos() -> None:
+    """Regresión del bug de fecha: el `system` lleva «hoy es» con el reloj del turno.
+
+    Con modelo real (2026-10-08) «lunes 12 de octubre» se resolvió en 2024 porque el
+    prompt no daba la fecha; hoy la aporta el `ClockPort`, nunca el juicio del LLM.
+    """
+    llm = _FakeLLM([JSON_CONSULTAR])
+    understand(_turno("¿Qué huecos hay el viernes?"), deps=_deps(llm)[0])
+    system = llm.calls[0]["system"]
+    assert isinstance(system, str)
+    assert "hoy es 2026-03-02 (lunes)" in system
 
 
 def test_understand_degrada_a_aclaracion_si_insiste_el_fallo() -> None:

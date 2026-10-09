@@ -11,7 +11,7 @@ from pydantic import ValidationError as SchemaValidationError
 
 from shared.ports import LLMMessage
 from slices.appointments.application.deps import Deps
-from slices.appointments.application.prompts import TAREA_INTERPRETAR, load_system_prompt
+from slices.appointments.application.prompts import load_system_prompt, tarea_interpretar
 from slices.appointments.application.schemas import AppointmentProposal
 from slices.appointments.application.state import AgentState
 
@@ -88,7 +88,7 @@ def understand(state: AgentState, *, deps: Deps) -> AgentState:
         ToolError: Si el propio LLM falla (red, 5xx); lo traduce el adapter y el
             turno se interrumpe fuera de este nodo.
     """
-    system = f"{load_system_prompt()}\n\n{TAREA_INTERPRETAR}"
+    system = f"{load_system_prompt()}\n\n{tarea_interpretar(deps.clock.now().date())}"
     mensajes = [
         *list(state.get("history") or []),
         LLMMessage(role="user", content=state["user_message"]),

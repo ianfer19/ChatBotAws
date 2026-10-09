@@ -65,6 +65,7 @@ def build_appointment_graph(
     deps = Deps(
         llm=llm,
         tools=AppointmentTools(repo=repo, clock=clock, opening_hours=opening_hours),
+        clock=clock,
     )
     graph = StateGraph(AgentState)  # pyrefly: ignore[bad-specialization]
     graph.add_node("understand", partial(understand, deps=deps))

@@ -38,8 +38,9 @@ canal (eso es `conversation_gateway`).
 ## Grafo (Paso 3)
 - `application/graph.py` → `build_appointment_graph(llm, repo, clock, opening_hours)`.
   Nodos en `application/nodes/`: `understand` (LLM → JSON validado en
-  `AppointmentProposal`, con reintento único y degradación a aclaración), `validate` +
-  `need_more?` (regla 4), `select_action` (allowlist `ALLOWED_TOOLS`; sin `tool_name` si
+  `AppointmentProposal`, con reintento único y degradación a aclaración; el `system`
+  incluye «hoy es `YYYY-MM-DD` (día)» con el `ClockPort` — fix del bug real en que
+  «lunes 12 de octubre» se fechó en 2024), `validate` + `need_more?` (regla 4), `select_action` (allowlist `ALLOWED_TOOLS`; sin `tool_name` si
   no aplica), `call_tool` (despacho; un `AppError` de la tool se traduce en `tool_error`),
   `validate_result` + `needs_confirmation?` (coherencia del resultado y confirmación) y
   `respond` (redacción con los datos ya decididos).
