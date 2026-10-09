@@ -18,11 +18,12 @@ Ver también: [MULTI_TENANCY.md](./MULTI_TENANCY.md), [AGENTCORE.md](./AGENTCORE
 | `whatsapp_orchestrator_service` | SQS → LangGraph (~1700 líneas), con tools directas contra DynamoDB (`search_products`, `get_menu`) | `supervisor` + tools vía AgentCore Gateway (D2): el LLM nunca toca la base de datos | 4 → 11 |
 | `ai_chat_service` | Chatbot con Step Functions | `supervisor` (LangGraph), sin Step Functions | 4 |
 | `tenant_service` | Config de comercio: branding, `allowed_bots`, `menu_images` | Se **consulta** por HTTP; no se duplica (fuente de verdad = legacy) | 4 |
-| `sales_service` | Pedidos y mesas | Slice `orders` (tools `get_order_status`, `create_order`) | 5 |
-| `product_service` | Catálogo de productos | Slice `knowledge_rag` (réplica a Aurora para RAG) + tool `search_products` vía HTTP | 5 → 7 |
-| `ops_service` | Reservas y citas | Slice `appointments` (tools `get_appointments`, `create_appointment`) | 5 |
+| `sales_service` | Pedidos y mesas | Slice `orders` (tools `search_products`, `get_menu`, `get_order_status`, `propose_order`) | 5 |
+| `product_service` | Catálogo de productos | Slice `knowledge_rag` (réplica a Aurora para RAG) + tools `search_products`/`get_menu` vía HTTP | 5 → 7 |
+| `ops_service` | Reservas y citas | Slice `appointments` (tools `get_availability`, `propose_appointment`, `cancel_appointment`) | 5 |
 
-Los nombres de los servicios son los del legacy; los endpoints exactos que exponen se levantan en el Paso 5 (sección 4).
+Los nombres de los servicios son los del legacy; sus endpoints exactos se levantaron en
+el Paso 5 (sección 4) desde `docs/catalogo_endpoints.md` y el código fuente del legacy.
 
 ## 3. Flujo actual vs. flujo futuro (webhook Meta)
 
@@ -58,20 +59,35 @@ sequenceDiagram
 
 ## 4. Contrato de tools hacia el legacy
 
-Lista **tentativa** de tools de negocio que expondrá AgentCore Gateway (D2). Cada tool = un endpoint HTTP del legacy + schema + autorización por tenant + timeout + idempotencia + logs:
+Endpoints **levantados en el Paso 5** leyendo `docs/catalogo_endpoints.md` del repo
+legacy y verificando el código fuente (`src/sales_service/app.py`,
+`src/product_service/app.py`, `src/ops_service/app.py` y `src/tenant_service/app.py`;
+revisión del 2026-10-09). Cada tool = un endpoint HTTP del legacy + schema +
+autorización por tenant + timeout + idempotencia + logs. Todo lo que no se pudo
+confirmar en el código queda marcado `TODO(verify)`: ninguna ruta se "inventa".
 
-| Tool | Caso de uso | Endpoint exacto |
-|---|---|---|
-| `get_catalog` | Listar catálogo del comercio | `TODO(verify)` |
-| `search_products` | Búsqueda semántica/por texto en productos | `TODO(verify)` |
-| `get_menu` | Menú e imágenes del comercio | `TODO(verify)` |
-| `get_order_status` | Estado de un pedido del cliente | `TODO(verify)` |
-| `create_order` | Crear pedido (si `allowed_bots` incluye `sales`) | `TODO(verify)` |
-| `get_appointments` | Citas/reservas del cliente | `TODO(verify)` |
-| `create_appointment` | Agendar cita | `TODO(verify)` |
-| `get_opening_hours` | Horarios de atención | `TODO(verify)` |
+| Tool (este repo) | Caso de uso | Servicio legacy | Endpoint exacto | Notas / `TODO(verify)` |
+|---|---|---|---|---|
+| `search_products` | Búsqueda por texto en el catálogo | `product_service` (5003) | `GET /public/products?store_id=<tenant_id>` | El legacy **no** expone un endpoint de búsqueda: la filtraría el cliente sobre la vista pública → `TODO(verify)` (¿filtro aquí o endpoint nuevo?) |
+| `get_menu` | Menú e imágenes del comercio | `product_service` (5003) | `GET /public/products?store_id=<tenant_id>&with_image=true` | Devuelve sólo productos `ACTIVO` del `store_id`; vista pública sin costos |
+| `get_order_status` | Estado de un pedido | `sales_service` (5002) | `GET /orders/<order_id>` | **Sin filtro de tenant en la ruta**: hay que verificar que el pedido sea del comercio → `TODO(verify)` (¿el legacy valida store o devuelve 404/ajeno?); alternativa de mesa: `GET /store/<store_id>/table/<table_id>/active-order` |
+| `propose_order` | Crear pedido | `sales_service` (5002) | `POST /orders/append` | Única ruta de creación (append a pedido abierto; «Used by both normal API and WhatsApp bot»); body `AppendOrderInput` (`store_id`, `mesa_id`, `order_type`, `items`); no existe `POST /orders` → `TODO(verify)` (flujo chat/domicilio y qué campos usa el bot) |
+| `get_availability` | Huecos libres del día | `ops_service` (5004) | `GET /appointments/availability?date=<fecha>&employee_id=<id>` | Exige `employee_id` y devuelve huecos 08:00–18:00 menos los reservados → `TODO(verify)` (cómo se resuelve el empleado por defecto del comercio; `get_availability` del repo no recibe employee) |
+| `propose_appointment` | Agendar cita | `ops_service` (5004) | `POST /appointments` | Body `AppointmentInput`: `date_iso` ISO 8601 estricto, `customer_id`/`customer_name`/`customer_phone`, `employee_id`/`employee_name`/`employee_role`, `service_id`/`service_name`; `TODO(verify)` (mapeo de nuestros campos a estos: date+time → `date_iso`, contact → customer, empleado/servicio por defecto) |
+| `cancel_appointment` | Cancelar cita | `ops_service` (5004) | `DELETE /bookings/<booking_id>?doctor_id=<id>` | Requiere `doctor_id` y opera sobre bookings → `TODO(verify)` (que las citas creadas por `/appointments` se cancelan por esta vía); alternativa: `PUT /bookings/<id>` con `status` |
+| `get_opening_hours` | Horarios de atención | `tenant_service` (5006) | `business_hours` en `CONFIG#COMMERCE` | El único endpoint público, `GET /public/config/<org_id>`, devuelve **sólo** `branding` → `TODO(verify)` (endpoint de horarios sin auth, o servirlos desde RAG) |
 
-Todos los endpoints se levantan en el **Paso 5** leyendo `docs/catalogo_endpoints.md` del repo legacy; ninguna de estas rutas se implementa "de memoria". Tools de **escritura** (p. ej. `create_order`) exigen idempotencia por `correlation_id`. El ejemplo canónico de las reglas de seguridad es el reverso: para "modificar la hora de un pedido" la tool **no existe**.
+El `tenant_id` del legacy sale de distintos sitios según el servicio: en `ops_service`
+de los claims del **authorizer** (`get_tenant_id()`), en `product_service` del query
+`store_id` y en `sales_service` del body (`AppendOrderInput.store_id`) o de la ruta.
+Ese mapeo (y la validación de que coincida con el contexto resuelto aquí) es parte del
+`TODO(verify)` de la sección 5.
+
+Tools de **escritura** (`propose_order`, `propose_appointment`, `cancel_appointment`)
+exigen idempotencia por `correlation_id` → `TODO(verify)` (mecanismo: ¿header del
+legacy, o lock propio en `order_locks`/`appointment_locks`, Paso 6). El ejemplo canónico
+de las reglas de seguridad es el reverso: para "modificar la hora de un pedido" la tool
+**no existe**.
 
 ## 5. Autenticación sistema → legacy
 

@@ -46,7 +46,10 @@ texto alrededor, con estas claves y `null` en las que no vengan en el mensaje:
 
 ## Changelog
 
+- **2026-10-09** (Paso 5, Fase 5): evals de comportamiento en verde
+  (`tests/agent_evals/datasets/appointments_behavior.json`): «sin hora → pide el dato»,
+  campo inferido va a confirmación y acción inexistente degrada con honestidad; sin
+  cambios en la redacción.
 - **2026-10-09** (Paso 5, Fase 2): `create_appointment` → `propose_appointment`. La
   escritura ahora es propose/commit con política de riesgo (ADR 0011): el agente solo
-  propone; confirmar o ejecutar es de la plataforma. Evals pendientes en la Fase 5 de
-  [docs/progress/paso-5-tools-y-logica-de-negocio.md](../../docs/progress/paso-5-tools-y-logica-de-negocio.md).
+  propone; confirmar o ejecutar es de la plataforma.

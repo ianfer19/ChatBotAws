@@ -1,9 +1,10 @@
 # Slice: orders
 
-> Paso de implementación: **Paso 5**. Estado: **Fase 4 del Paso 5 hecha** (dominio,
+> Paso de implementación: **Paso 5**. Estado: **Paso 5 completo (Fases 1–5)**: dominio,
 > tools propose/commit, grafo, enlace `route_orders`, `Deps.allowed_tools` con
-> intersección en `select_action` y router `resolve_pending` en el supervisor).
-> Pendiente en la ruta: adapter legacy real (Paso 11), catálogo desde RAG/Aurora (Paso 7).
+> intersección en `select_action`, router `resolve_pending` del supervisor, evals y
+> contratos. Pendiente en la ruta: adapter legacy real (Paso 11), catálogo desde
+> RAG/Aurora (Paso 7).
 
 ## Responsabilidad
 Pedidos del comercio: catálogo, consulta de estado y creación con confirmación humana
@@ -157,6 +158,14 @@ Los errores de tool llegan a `respond` como `tool_error` (`code` + mensaje inter
   (`test_select_action_recorta_las_tools_por_el_comercio` y
   `test_e2e_tool_fuera_del_entitlement_no_ejecuta_ni_se_inventa`) y router
   `resolve_pending` en `tests/unit/test_supervisor_resolve_pending.py`.
-- Pendiente (Fase 5): `tests/agent_evals/datasets/` — "cambiar la hora de mi pedido" →
-  sin tool + rechazo (capa 5); "lo de siempre" → `AUTO` sin ritual; monto alto →
-  `AWAITING`.
+- Fase 5 (hecho): `tests/agent_evals/datasets/orders_behavior.json` con su ejecutor
+  `tests/agent_evals/test_orders_dataset.py` («cambiar la hora» → sin tool ni
+  invocaciones y rechazo honesto, `order_time_01/02`; «lo de siempre» → `AUTO` con
+  commit, `order_lo_de_siempre_01`; monto alto → `AWAITING`, `order_monto_alto_01`) y
+  contrato de `PendingDraft`/`OrderView`/`OrderProposal` en
+  `tests/contract/test_pending_contracts.py`.
+- Manual contra Bedrock (hecho el 2026-10-09, cuenta `iastock-old`): REPL
+  `python scripts\chat_citas.py` con `orders_graph`/`confirmer`/`draft_store`
+  cableados — «quiero 2 A-100 y 1 P-100» → `AUTO` con pedido `ABIERTA` (41 000) y
+  «quiero 6 A-100» → `AWAITING` + «sí» del router → pedido creado (108 000); y smoke
+  `pytest tests/integration -rs` (`5 passed`).

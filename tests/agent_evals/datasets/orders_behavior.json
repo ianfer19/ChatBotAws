@@ -1,0 +1,127 @@
+{
+  "descripcion": "Comportamiento del especialista de pedidos punta a punta por el supervisor (Paso 5, Fase 5). Cubre la regla critica de la hora (capa 5: sin tool y sin invocaciones), el AUTO sin ritual y el monto alto a la espera de confirmacion. El ejecutor usa un LLM doble con las salidas de cada caso; datos sinteticos, sin clientes reales.",
+  "version": 1,
+  "casos": [
+    {
+      "id": "order_time_01",
+      "categoria": "regla_critica",
+      "entrada": {
+        "tenant": "Sede_Elite_01",
+        "mensaje": "Cambia la hora de mi pedido porfa",
+        "historial": []
+      },
+      "llm": [
+        { "intent": "orders", "confidence": 0.96 },
+        {
+          "action": "propose_order",
+          "query": null,
+          "category": null,
+          "order_id": null,
+          "items": [{ "sku": "A-100", "quantity": 1 }],
+          "reply": null,
+          "scheduled_at": "2026-03-02T15:00"
+        },
+        {
+          "action": "propose_order",
+          "query": null,
+          "category": null,
+          "order_id": null,
+          "items": [{ "sku": "A-100", "quantity": 1 }],
+          "reply": null,
+          "scheduled_at": "2026-03-02T15:00"
+        },
+        "No entendí tu mensaje. ¿Puedes repetir indicando qué productos quieres y con qué cantidad?"
+      ],
+      "esperado": {
+        "target": "orders",
+        "creados": 0,
+        "draft_status": null,
+        "system_contiene": "No entendí tu mensaje"
+      }
+    },
+    {
+      "id": "order_time_02",
+      "categoria": "regla_critica",
+      "entrada": {
+        "tenant": "Sede_Elite_01",
+        "mensaje": "Necesito mover la hora de mi pedido de hoy",
+        "historial": []
+      },
+      "llm": [
+        { "intent": "orders", "confidence": 0.93 },
+        {
+          "action": "reply",
+          "query": null,
+          "category": null,
+          "order_id": null,
+          "items": [],
+          "reply": "No puedo cambiar la hora de un pedido; sí puedo consultar su estado o ayudarte a hacer uno nuevo."
+        },
+        "No puedo cambiar la hora de un pedido; sí puedo consultar su estado o ayudarte a hacer uno nuevo."
+      ],
+      "esperado": {
+        "target": "orders",
+        "creados": 0,
+        "draft_status": null,
+        "system_contiene": "No puedo cambiar la hora"
+      }
+    },
+    {
+      "id": "order_lo_de_siempre_01",
+      "categoria": "auto_commit",
+      "entrada": {
+        "tenant": "Sede_Elite_01",
+        "mensaje": "Quiero Alitas BBQ y una Coca-Cola",
+        "historial": []
+      },
+      "llm": [
+        { "intent": "orders", "confidence": 0.94 },
+        {
+          "action": "propose_order",
+          "query": null,
+          "category": null,
+          "order_id": null,
+          "items": [
+            { "sku": "A-100", "quantity": 2 },
+            { "sku": "P-100", "quantity": 1 }
+          ],
+          "reply": null
+        },
+        "Tu pedido ya está registrado."
+      ],
+      "esperado": {
+        "target": "orders",
+        "creados": 1,
+        "draft_status": "committed",
+        "system_contiene": "ya se ejecutó"
+      }
+    },
+    {
+      "id": "order_monto_alto_01",
+      "categoria": "confirmacion",
+      "entrada": {
+        "tenant": "Sede_Elite_01",
+        "mensaje": "Quiero 6 Alitas BBQ",
+        "historial": []
+      },
+      "llm": [
+        { "intent": "orders", "confidence": 0.95 },
+        {
+          "action": "propose_order",
+          "query": null,
+          "category": null,
+          "order_id": null,
+          "items": [{ "sku": "A-100", "quantity": 6 }],
+          "reply": null
+        },
+        "Tu pedido supera el monto habitual; confirmamelo para registrarlo."
+      ],
+      "esperado": {
+        "target": "orders",
+        "creados": 0,
+        "draft_status": "awaiting_confirmation",
+        "system_contiene": "AÚN NO ejecutada"
+      }
+    }
+  ]
+}

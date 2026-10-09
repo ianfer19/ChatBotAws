@@ -6,7 +6,9 @@
 > `route_orders` invoca el grafo de pedidos cuando la composición lo inyecta
 > (`orders_graph=None` → `route_pending`). **Fase 4 del Paso 5**: nodo `resolve_pending`
 > (router determinista de drafts, ADR 0011 §5) con `ConfirmerPort` y `DraftStorePort`
-> opcionales (`None` → router desactivado). Handoff y abuso (`sentiment_handoff`,
+> opcionales (`None` → router desactivado). **Fase 5 del Paso 5**: confirmer real
+> cableado en la composición del REPL (`scripts/chat_citas.py`) y evals e2e de
+> citas/pedidos que pasan por este supervisor. Handoff y abuso (`sentiment_handoff`,
 > `abuse_protection`) siguen fuera de la ruta (ROADMAP §4).
 
 ## Responsabilidad
@@ -148,7 +150,9 @@ responde con el saludo plantilla del tenant.
   a ventas o invoca un especialista.
 - Contract: el `RoutedTurn` siempre lleva `tenant_id`/`correlation_id` (asertado en el
   grafo y en el dataset).
-- Manual contra Bedrock (hecho, 2026-10-08): REPL `python scripts\chat_citas.py` pasando
-  por el supervisor (`hola` → saludo propio; cita → `intencion=appointments` con
-  enrutado al especialista) y smoke `tests/integration/test_supervisor_smoke.py`
-  (`2 passed` con perfil `iastock-old`; en CI se omite sin credenciales).
+- Manual contra Bedrock (hecho el 2026-10-08 y extendido el 2026-10-09 en la Fase 5,
+  cuenta `iastock-old`): REPL `python scripts\chat_citas.py` pasando por el supervisor
+  (`hola` → saludo propio; cita → `intencion=appointments`; pedido → `intencion=orders`;
+  alto monto → draft a la espera y «sí» → `pending_outcome=affirmed` con pedido creado)
+  y smoke `tests/integration/test_supervisor_smoke.py` (`3 passed` con perfil
+  `iastock-old`, incluida la ruta `route_orders`; en CI se omite sin credenciales).

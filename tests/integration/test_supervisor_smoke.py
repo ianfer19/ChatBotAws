@@ -1,10 +1,11 @@
-"""Smoke real del supervisor (Paso 4): LangGraph + `BedrockLLM` contra Bedrock.
+"""Smoke real del supervisor (Pasos 4 y 5): LangGraph + `BedrockLLM` contra Bedrock.
 
-Dos turnos con las dependencias de producción (modelo real, lector de contexto real,
-grafo de citas real): un saludo, que debe quedarse en el supervisor, y una petición de
-cita, que debe invocar al especialista. Verifica el camino completo
-`load_context` → `classify` → `decide` → [greet | route_appointments]. Son varias
-llamadas al modelo por turno `TODO(verify pricing)` (Paso 14).
+Tres turnos con las dependencias de producción (modelo real, lector de contexto real,
+ambos especialistas reales): un saludo, que debe quedarse en el supervisor; una petición
+de cita y un pedido, que deben invocar a su especialista. Verifica el camino completo
+`load_context` → `resolve_pending` → `classify` → `decide` → [greet |
+route_appointments | route_orders]. Son varias llamadas al modelo por turno
+`TODO(verify pricing)` (Paso 14).
 
 Se omite en CI o sin `CHATBOT_BEDROCK_MODEL_ID` real; si la cuenta aún no tiene
 verificado el acceso a Bedrock, se omite con ese motivo en vez de fallar.
@@ -31,6 +32,14 @@ from slices.appointments.application.schemas import OpeningHoursDay
 from slices.appointments.infrastructure.in_memory import InMemoryAppointmentRepository
 from slices.customer_context.application.tools import CustomerContextTools
 from slices.customer_context.infrastructure.in_memory import InMemoryCustomerContextStore
+from slices.orders.application.graph import build_order_graph
+from slices.orders.application.schemas import KitchenHoursDay
+from slices.orders.domain.entities import Product
+from slices.orders.infrastructure.in_memory import (
+    InMemoryCatalog,
+    InMemoryLegacyOrders,
+    InMemoryOrderRepository,
+)
 from slices.supervisor.application.graph import build_supervisor_graph
 
 pytestmark = [
@@ -47,7 +56,14 @@ _TENANT = "Sede_Elite_01"
 _CLIENTE = "57300111111"
 _BOTS: frozenset[AgentName] = frozenset({"sales", "appointments", "orders", "faq"})
 _HORARIO = (OpeningHoursDay(weekday=0, open_time="09:00", close_time="18:00"),)
-_MENSAJE_ID = "smoke-paso-4"
+_COCINA = tuple(
+    KitchenHoursDay(weekday=dia, open_time="00:00", close_time="23:59") for dia in range(7)
+)
+_CATALOGO = (
+    Product(tenant_id=_TENANT, sku="A-100", name="Alitas BBQ", price=18_000, category="entradas"),
+    Product(tenant_id=_TENANT, sku="P-100", name="Coca-Cola", price=5_000, category="bebidas"),
+)
+_MENSAJE_ID = "smoke-pasos-4-5"
 
 
 class _RelojFijo:
@@ -63,7 +79,7 @@ class _RelojFijo:
 
 
 def _grafo() -> Any:
-    """Compone el supervisor con el lector de contexto y el grafo de citas reales.
+    """Compone el supervisor con el lector de contexto y los dos especialistas reales.
 
     Returns:
         El grafo del supervisor compilado con Bedrock por debajo.
@@ -80,19 +96,29 @@ def _grafo() -> Any:
     except NoRegionError:
         pytest.skip("sin región de AWS: define AWS_DEFAULT_REGION (p. ej. us-east-1)")
     reloj = _RelojFijo()
+    drafts = InMemoryDraftStore(clock=reloj)
     lector = CustomerContextTools(store=InMemoryCustomerContextStore(clock=reloj), clock=reloj)
     citas = build_appointment_graph(
         llm=llm,
         repo=InMemoryAppointmentRepository(),
         clock=reloj,
         opening_hours=_HORARIO,
-        drafts=InMemoryDraftStore(clock=reloj),
+        drafts=drafts,
+    )
+    pedidos = build_order_graph(
+        llm=llm,
+        legacy=InMemoryLegacyOrders(InMemoryOrderRepository(), clock=reloj),
+        catalog=InMemoryCatalog(_CATALOGO),
+        clock=reloj,
+        kitchen_hours=_COCINA,
+        drafts=drafts,
     )
     return build_supervisor_graph(
         llm=llm,
         context_reader=lector,
         allowed_bots=_BOTS,
         appointments_graph=citas,
+        orders_graph=pedidos,
     )
 
 
@@ -155,5 +181,22 @@ def test_supervisor_enruta_una_cita_al_especialista() -> None:
     routed = estado.get("routed")
     assert routed is not None
     assert routed.target == "appointments"
+    assert routed.message.tenant_id == _TENANT
+    assert routed.message.correlation_id == _MENSAJE_ID
+
+
+def test_supervisor_enruta_un_pedido_al_especialista() -> None:
+    """Con el modelo real, un pedido invoca al especialista de pedidos y responde.
+
+    El especialista real decide la tool (búsqueda o propuesta) con el catálogo en
+    memoria; lo que se verifica aquí es el camino `route_orders` con Bedrock por
+    debajo, no la elección concreta del modelo.
+    """
+    estado = _invocar(_grafo(), "Quiero pedir unas alitas BBQ para llevar")
+    reply = estado.get("reply")
+    assert isinstance(reply, str) and reply.strip()
+    routed = estado.get("routed")
+    assert routed is not None
+    assert routed.target == "orders"
     assert routed.message.tenant_id == _TENANT
     assert routed.message.correlation_id == _MENSAJE_ID

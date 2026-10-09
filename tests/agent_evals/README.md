@@ -9,8 +9,11 @@ comprueban lo que el agente responde y hace en situaciones concretas.
 tests/agent_evals/
 ├── README.md          # este archivo
 ├── datasets/          # casos versionados (JSON) — ver docs/ai/EVALUATION.md
-│   └── supervisor_routing.json   # enrutado del supervisor (Paso 4)
-└── test_<nombre>.py   # ejecutores de los datasets (supervisor: Paso 4; resto: Paso 14)
+│   ├── supervisor_routing.json       # enrutado del supervisor (Paso 4)
+│   ├── appointments_behavior.json    # comportamiento de citas (Paso 5)
+│   └── orders_behavior.json          # comportamiento de pedidos (Paso 5)
+└── test_<nombre>.py   # ejecutores de los datasets (Paso 4 y 5 con LLM doble;
+                       #   modelo real en el Paso 14)
 ```
 
 ## Casos obligatorios (regresión)
@@ -31,7 +34,9 @@ tests/agent_evals/
 - Un cambio de prompt no puede mergearse si un caso obligatorio pasa a fallar
   (ver `docs/ai/EVALUATION.md`).
 
-Estado: `datasets/supervisor_routing.json` + su ejecutor con LLM doble existen desde el
-**Paso 4** (regresión de saludo y enrutado); el resto de datasets y los ejecutores con
-modelo real llegan en el **Paso 14** (evals). Los casos anteriores ya están definidos
-aquí como contrato.
+Estado: `datasets/supervisor_routing.json` + su ejecutor existen desde el **Paso 4**
+(regresión de saludo y enrutado); `orders_behavior.json` y `appointments_behavior.json`
++ sus ejecutores desde el **Paso 5** (regla crítica de la hora, política `AUTO`/`CONFIRM`
+y «sin hora → pide el dato»), todos con LLM doble. Los casos anteriores sin dataset
+(`context_01`, `grounding_01`, `handoff_01`, `tenant_isolation_01`) ya están definidos
+aquí como contrato; los ejecutores con modelo real llegan en el **Paso 14**.

@@ -1,9 +1,9 @@
 # Slice: appointments
 
 > Paso de implementación: **Pasos 3 y 5**. Estado: **Paso 3 hecho** (grafo, `AgentState`,
-> tools), **Fase 2 del Paso 5 hecha** (propose/commit con política de riesgo, reglas 2 y 3,
-> estados canónicos, drafts) y **Fase 4 del Paso 5 hecha** (`Deps.allowed_tools` con
-> intersección en `select_action`). Pendiente en la ruta: adapter legacy (Paso 11).
+> tools) y **Paso 5 completo (Fases 1–5)**: propose/commit con política de riesgo, reglas
+> 2 y 3, estados canónicos, drafts, `Deps.allowed_tools` con intersección en
+> `select_action`, evals y contratos. Pendiente en la ruta: adapter legacy (Paso 11).
 
 ## Responsabilidad
 Reservas y citas de los comercios: consultar disponibilidad, proponer y cancelar citas y
@@ -139,9 +139,14 @@ turno nunca se rompe por un fallo de negocio.
 - Fase 4 (hecho): tool deshabilitada en `tests/unit/test_appointments_graph.py`
   (`test_select_action_recorta_las_tools_por_el_comercio` y
   `test_e2e_tool_fuera_del_entitlement_no_ejecuta_ni_se_inventa`).
-- Pendiente (Fase 5): `tests/agent_evals/datasets/` — "quiero una cita el viernes" sin
-  hora → pide confirmación en vez de crear; "cambiar la hora…" → sin tool de escritura.
-- Manual contra Bedrock (hecho el 2026-10-08, cuenta `iastock-old`): REPL
-  `python scripts\chat_citas.py` (comandos `/status`, `/reset`, `--turno`, `--debug`) y
-  smoke `pytest tests/integration/test_appointments_graph_smoke.py -rs` (ambos pasan;
-  smoke actualizado con `drafts=` y `conversation_id`, re-ejecutar en la Fase 5).
+- Fase 5 (hecho): `tests/agent_evals/datasets/appointments_behavior.json` con su ejecutor
+  `tests/agent_evals/test_appointments_dataset.py` («quiero una cita el viernes» sin hora
+  → pide el dato y no crea nada, `appt_sin_hora_01`; hora inferida → confirmación,
+  `appt_hora_inferida_01`; acción inexistente de hora → degradación honesta,
+  `appt_time_01`) y contrato de `PendingDraft` en
+  `tests/contract/test_pending_contracts.py`.
+- Manual contra Bedrock (hecho el 2026-10-08 y re-ejecutado el 2026-10-09 en la Fase 5,
+  cuenta `iastock-old`): REPL `python scripts\chat_citas.py` (comandos `/status`,
+  `/reset`, `--turno`, `--debug`; ahora con `orders_graph`, `confirmer` y `draft_store`
+  cableados) y smokes `pytest tests/integration -rs` (`5 passed`, incluye
+  `test_supervisor_enruta_un_pedido_al_especialista`).

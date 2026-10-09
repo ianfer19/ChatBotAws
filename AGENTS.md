@@ -19,8 +19,8 @@ Colombia). El sistema:
 - Protege el sistema con Guardrails, detección de abuso y handoff humano.
 
 **Estado: Fases 1 y 2 completadas** (esqueleto, documentación, CI y kernel `shared`) y
-**Pasos 1-4 de la ruta** (ports, Bedrock, grafo de citas, supervisor + contexto); la
-lógica de negocio arranca en el Paso 5. La ruta activa es [docs/ROADMAP.md](docs/ROADMAP.md)
+**Pasos 1-5 de la ruta** (ports, Bedrock, grafo de citas, supervisor + contexto, y
+tools con lógica de negocio propose/commit). La ruta activa es [docs/ROADMAP.md](docs/ROADMAP.md)
 (14 pasos); visión general: [docs/architecture/OVERVIEW.md](docs/architecture/OVERVIEW.md) y §10.
 
 ---
@@ -292,7 +292,7 @@ de las fases históricas 1–9 a los pasos nuevos).
 | 2 | Bedrock + abstracción de modelos (`adapters/bedrock`, Converse API) | **hecho** |
 | 3 | LangGraph: grafo de citas + `AgentState` en `appointments/application` | **hecho** |
 | 4 | Supervisor (routing, saludo) + `customer_context` (contexto obligatorio por turno) | **hecho** |
-| 5 | Tools + lógica de negocio (citas, pedidos) con dobles en memoria | **en curso** (ver [docs/progress/](docs/progress/)) |
+| 5 | Tools + lógica de negocio (citas, pedidos) con dobles en memoria | **hecho** |
 | 6 | Infraestructura Terraform base (state, red, DynamoDB, S3, Aurora, IAM, apigw, lambda) | pendiente |
 | 7 | RAG + Aurora/pgvector (`knowledge_rag`, `VectorStorePort` → `adapters/aurora`) | pendiente |
 | 8 | Memory / checkpoints (checkpointer de LangGraph, ADR 0007) | pendiente |

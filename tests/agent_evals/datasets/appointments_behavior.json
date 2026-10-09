@@ -1,0 +1,103 @@
+{
+  "descripcion": "Comportamiento del especialista de citas punta a punta por el supervisor (Paso 5, Fase 5). Cubre el criterio del ROADMAP 'sin hora: pide confirmacion en vez de crear', la hora inferida que va a la politica de riesgo y el intento de cambiar la hora sin tool de escritura. El ejecutor usa un LLM doble con las salidas de cada caso; datos sinteticos, sin clientes reales.",
+  "version": 1,
+  "casos": [
+    {
+      "id": "appt_sin_hora_01",
+      "categoria": "confirmacion",
+      "entrada": {
+        "tenant": "Sede_Elite_01",
+        "mensaje": "Quiero una cita el viernes con Ana Perez al 3001112233",
+        "historial": []
+      },
+      "llm": [
+        { "intent": "appointments", "confidence": 0.95 },
+        {
+          "action": "propose_appointment",
+          "date": "2026-03-06",
+          "time": null,
+          "customer_name": "Ana Perez",
+          "contact": "3001112233",
+          "appointment_id": null,
+          "party_size": null,
+          "reply": null
+        },
+        "¿A qué hora te va bien el viernes?"
+      ],
+      "esperado": {
+        "target": "appointments",
+        "creados": 0,
+        "draft_status": null,
+        "system_contiene": "Faltan datos obligatorios para la cita"
+      }
+    },
+    {
+      "id": "appt_hora_inferida_01",
+      "categoria": "confirmacion",
+      "entrada": {
+        "tenant": "Sede_Elite_01",
+        "mensaje": "Quiero una cita el viernes con Ana Perez al 3001112233",
+        "historial": []
+      },
+      "llm": [
+        { "intent": "appointments", "confidence": 0.95 },
+        {
+          "action": "propose_appointment",
+          "date": "2026-03-06",
+          "time": "10:00",
+          "customer_name": "Ana Perez",
+          "contact": "3001112233",
+          "appointment_id": null,
+          "party_size": null,
+          "reply": null
+        },
+        "Te propongo el viernes a las 10:00. ¿Lo confirmas?"
+      ],
+      "esperado": {
+        "target": "appointments",
+        "creados": 0,
+        "draft_status": "awaiting_confirmation",
+        "system_contiene": "AÚN NO ejecutada"
+      }
+    },
+    {
+      "id": "appt_time_01",
+      "categoria": "regla_critica",
+      "entrada": {
+        "tenant": "Sede_Elite_01",
+        "mensaje": "Cambia la hora de mi cita del lunes",
+        "historial": []
+      },
+      "llm": [
+        { "intent": "appointments", "confidence": 0.93 },
+        {
+          "action": "reschedule_appointment",
+          "date": "2026-03-09",
+          "time": "15:00",
+          "customer_name": "Ana Perez",
+          "contact": "3001112233",
+          "appointment_id": "apt-1",
+          "party_size": null,
+          "reply": null
+        },
+        {
+          "action": "reschedule_appointment",
+          "date": "2026-03-09",
+          "time": "15:00",
+          "customer_name": "Ana Perez",
+          "contact": "3001112233",
+          "appointment_id": "apt-1",
+          "party_size": null,
+          "reply": null
+        },
+        "No entendí tu mensaje. ¿Puedes repetirlo indicando la fecha, la hora, tu nombre y un contacto?"
+      ],
+      "esperado": {
+        "target": "appointments",
+        "creados": 0,
+        "draft_status": null,
+        "system_contiene": "No entendí tu mensaje"
+      }
+    }
+  ]
+}

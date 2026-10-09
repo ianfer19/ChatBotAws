@@ -6,8 +6,8 @@
 > [ROADMAP §1 fila 5](../ROADMAP.md). Decisiones de alcance: ADR
 > [0011](../adr/0011-confirmacion-por-politica-con-drafts.md).
 >
-> **Estado global: Fase 4 de 5 completada; siguiente: Fase 5 (evals, contratos,
-> endpoints legacy, docs y smoke).**
+> **Estado global: PASO 5 COMPLETO (Fases 1–5).** Siguiente en la ruta:
+> [ROADMAP](../ROADMAP.md) Paso 6 (infraestructura Terraform base).
 
 ## Decisiones cerradas con el usuario (2026-10-09)
 
@@ -66,21 +66,35 @@
 
 ## Fase 5 — evals + contratos + endpoints legacy + docs + smoke
 
-- [ ] Evals: «sin hora → pide confirmación» (criterio ROADMAP), «cambiar la hora de mi
-      pedido» → sin tool + rechazo (capa 5), «lo de siempre» → AUTO sin ritual,
-      monto alto → AWAITING.
-- [ ] `tests/contract/`: `PendingDraft`, `OrderPropose`, `OrderView` (+ rechazo de
-      campos de hora/tenant).
-- [ ] `INTEGRATION_WITH_LEGACY.md` §4: endpoints Sales/Product (catálogo) y Ops
-      (leyendo `sahagunonline/back/src/ops_service/app.py`); no confirmado → `TODO(verify)`.
-- [ ] Docs: AGENTS de appointments/orders/supervisor + índice de slices, raíz
-      §1/§8/§10 fila 5 → **hecho**, CLAUDE paso activo → **6**, changelog de prompts (§5.11).
-- [ ] Smoke real con `iastock-old`: REPL con turno de pedido (proponer → auto/confirmar)
-      + supervisor smoke extendido.
+- [x] Evals: «sin hora → pide confirmación» (`appt_sin_hora_01`, criterio ROADMAP),
+      «cambiar la hora de mi pedido» → sin tool + rechazo honesto (`order_time_01/02`,
+      capa 5), «lo de siempre» → AUTO sin ritual (`order_lo_de_siempre_01`), monto alto
+      → AWAITING (`order_monto_alto_01`) + inferido → CONFIRM
+      (`appt_hora_inferida_01`); datasets `orders_behavior.json` /
+      `appointments_behavior.json` con ejecutores punta a punta por el supervisor real.
+- [x] `tests/contract/test_pending_contracts.py`: `PendingDraft` (inmutable, `extra="forbid"`,
+      hash canónico, sin campos de hora), `OrderView` y `OrderProposal` (+ rechazo de
+      campos de hora/tenant ya cubierto en `test_orders_tools_contract.py`).
+- [x] `INTEGRATION_WITH_LEGACY.md` §4: endpoints Sales/Product/Ops levantados de
+      `catalogo_endpoints.md` + código (`sales_service`, `product_service`,
+      `ops_service`, `tenant_service`); todo lo no confirmado → `TODO(verify)`.
+- [x] Cableado de `scripts/chat_citas.py`: `orders_graph`, `draft_store` compartido,
+      `confirmer` real (despacho por `kind`), `allowed_tools ← allowed_bots`,
+      catálogo/horario demo, `/status` con pedidos y salida de consola tolerante a
+      caracteres fuera de la codepage (emoji del modelo no rompe el REPL).
+- [x] Docs: AGENTS de appointments/orders/supervisor + índice de slices (fila
+      appointments/orders → implementado), raíz §1/§10 fila 5 → **hecho**, CLAUDE paso
+      activo → **6** (y ADR 0001–0011), READMEs de evals, INTEGRATION §2 y changelogs
+      de `prompts/base/{orders,appointments}.md`.
+- [x] Smoke real con `iastock-old` (2026-10-09): REPL multi-turno — «2 A-100 y 1 P-100»
+      → pedido `ABIERTA` 41 000 (`AUTO`) y «6 A-100» → `AWAITING` + «sí» →
+      `affirmed` con pedido 108 000; supervisor smoke extendido con `route_orders`
+      (`pytest tests/integration -rs` → `5 passed`).
 
 ## Criterios de hecho del ROADMAP (§1 fila 5)
 
-- [ ] Unit de dominio + eval «sin hora → pide confirmación» en verde.
-- [ ] Adapter legacy **pendiente** pero con endpoints levantados de `catalogo_endpoints.md`.
-- [ ] Batería completa en verde (ruff, format, mypy, pytest, lint-imports, terraform,
+- [x] Unit de dominio + eval «sin hora → pide confirmación» en verde.
+- [x] Adapter legacy **pendiente** (Paso 11) pero con endpoints levantados de
+      `catalogo_endpoints.md` en INTEGRATION §4.
+- [x] Batería completa en verde (ruff, format, mypy, pytest, lint-imports, terraform,
       pyrefly, final_review).

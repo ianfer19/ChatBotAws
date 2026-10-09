@@ -50,8 +50,10 @@ el cliente quiera; nunca lleven precio (lo pone siempre el catálogo).
 
 ## Changelog
 
+- **2026-10-09** (Paso 5, Fase 5): evals de comportamiento en verde
+  (`tests/agent_evals/datasets/orders_behavior.json`): regla crítica de la hora (sin tool
+  y sin invocaciones), `AUTO` con commit y monto alto a la espera de confirmación; sin
+  cambios en la redacción.
 - **2026-10-09** (Paso 5, Fase 3): creación de la plantilla con las tools
   `search_products`/`get_menu`/`get_order_status`/`propose_order` (propose/commit con
   política de riesgo, ADR 0011) y la regla crítica «no cambiar la hora del pedido».
-  Evals pendientes en la Fase 5 de
-  [docs/progress/paso-5-tools-y-logica-de-negocio.md](../../docs/progress/paso-5-tools-y-logica-de-negocio.md).
