@@ -21,6 +21,16 @@ TAREA_CLASIFICAR = (
     "No escribas texto fuera del JSON."
 )
 
+TAREA_PENDIENTE = (
+    "TAREA: decide si el ÚLTIMO mensaje del usuario responde a la propuesta pendiente "
+    "descrita abajo y responde SOLO con un objeto JSON con las claves decision y "
+    'payload_hash. decision es exactamente "affirm" (confirma la propuesta), '
+    '"deny" (la rechaza) o "pass" (el mensaje NO responde a la propuesta: sigue con '
+    "la conversación normal). payload_hash debe ser EXACTAMENTE el hash de la "
+    "propuesta, carácter por carácter; si no puedes copiarlo con certeza, usa "
+    '"pass" con el hash tal cual. No escribas texto fuera del JSON.'
+)
+
 
 def load_system_prompt() -> str:
     """Lee el system prompt base del supervisor desde `prompts/base/`.

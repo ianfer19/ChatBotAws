@@ -30,7 +30,7 @@ from slices.appointments.application.nodes import (
     validate,
     validate_result,
 )
-from slices.appointments.application.schemas import OpeningHoursDay
+from slices.appointments.application.schemas import OpeningHoursDay, ToolName
 from slices.appointments.application.state import AgentState
 from slices.appointments.application.tools import AppointmentTools
 from slices.appointments.domain.ports import AppointmentRepositoryPort
@@ -48,6 +48,7 @@ def build_appointment_graph(
     clock: ClockPort,
     opening_hours: Sequence[OpeningHoursDay],
     drafts: DraftStorePort,
+    allowed_tools: frozenset[ToolName] | None = None,
 ) -> CompiledStateGraph[AgentState, Any, Any, Any]:  # pyrefly: ignore[bad-specialization]
     """Construye y compila el grafo de citas con las dependencias del entorno.
 
@@ -58,6 +59,8 @@ def build_appointment_graph(
         opening_hours: Horario de atención del comercio (falso hasta RAG/Paso 7).
         drafts: Store de propuestas pendientes (ADR 0011; `InMemoryDraftStore` en
             desarrollo, DynamoDB `pending_actions` en el Paso 6).
+        allowed_tools: Entitlements finos del comercio (Fase 4 del Paso 5); `None`
+            permite toda la allowlist del slice.
 
     Returns:
         Grafo compilado, listo para `invoke` con un estado inicial `AgentState`.
@@ -69,11 +72,12 @@ def build_appointment_graph(
         llm=llm,
         tools=AppointmentTools(repo=repo, clock=clock, opening_hours=opening_hours, drafts=drafts),
         clock=clock,
+        allowed_tools=allowed_tools,
     )
     graph = StateGraph(AgentState)  # pyrefly: ignore[bad-specialization]
     graph.add_node("understand", partial(understand, deps=deps))
     graph.add_node("validate", validate)
-    graph.add_node("select_action", select_action)
+    graph.add_node("select_action", partial(select_action, deps=deps))
     graph.add_node("call_tool", partial(call_tool, deps=deps))
     graph.add_node("validate_result", validate_result)
     graph.add_node("respond", partial(respond, deps=deps))

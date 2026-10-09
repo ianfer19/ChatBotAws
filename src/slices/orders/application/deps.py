@@ -8,6 +8,7 @@ El `handler` (Paso 9) construye estos objetos con los adaptadores reales y los p
 from dataclasses import dataclass
 
 from shared.ports import ClockPort, LLMPort
+from slices.orders.application.schemas import ToolName
 from slices.orders.application.tools import OrderTools
 
 
@@ -20,8 +21,14 @@ class Deps:
         tools: Tools de pedidos con sus puertos (legacy, catálogo, drafts y horario).
         clock: Reloj del turno: `understand` le pasa «ahora» al prompt (horario de
             cocina) y las tools miden con él la ventana de deshacer.
+        allowed_tools: Entitlements finos del comercio (Fase 4 del Paso 5); `None`
+            permite toda la allowlist del slice. La composición los deriva de
+            `allowed_bots` del supervisor; `select_action` interseca con
+            `ALLOWED_TOOLS`, así que una tool fuera de la intersección no se ejecuta
+            jamás (capa adicional de mínimo privilegio).
     """
 
     llm: LLMPort
     tools: OrderTools
     clock: ClockPort
+    allowed_tools: frozenset[ToolName] | None = None

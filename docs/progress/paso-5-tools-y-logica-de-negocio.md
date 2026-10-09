@@ -6,7 +6,8 @@
 > [ROADMAP §1 fila 5](../ROADMAP.md). Decisiones de alcance: ADR
 > [0011](../adr/0011-confirmacion-por-politica-con-drafts.md).
 >
-> **Estado global: Fase 3 de 5 completada; siguiente: Fase 4 (router de confirmación).**
+> **Estado global: Fase 4 de 5 completada; siguiente: Fase 5 (evals, contratos,
+> endpoints legacy, docs y smoke).**
 
 ## Decisiones cerradas con el usuario (2026-10-09)
 
@@ -49,12 +50,19 @@
 
 ## Fase 4 — router de confirmación + allowlist por tenant
 
-- [ ] Nodo `resolve_pending` del supervisor + `ConfirmerPort` (affirm/deny/modify,
-      verificación de `payload_hash`, ventana de deshacer).
-- [ ] `Deps.allowed_tools` en ambos especialistas (`select_action` interseca;
-      composición deriva de `allowed_bots`).
-- [ ] Tests: router (affirm/deny/hash desfasado/expirado/undo), tool deshabilitada,
-      regresión de saludo intacta.
+- [x] Nodo `resolve_pending` del supervisor + `ConfirmerPort` (affirm/deny/undo;
+      verificación de `payload_hash` contra `TAREA_PENDIENTE`, plantillas de respuesta
+      genéricas, ventana de deshacer; `modify`/supersede lo gestiona el especialista al
+      proponer de nuevo, ADR 0011 §5).
+- [x] `Deps.allowed_tools` en ambos especialistas (`select_action` interseca con la
+      allowlist del slice; `respond` redacta «no está habilitada» sin inventar);
+      la derivación de `allowed_bots` en la composición queda para el cableado de
+      Fase 5 (`scripts/chat_citas.py`).
+- [x] Tests: `test_supervisor_resolve_pending.py` (28: afirm/deny/hash desfasado/
+      JSON ilegible/fallo del LLM/expirado/undo en y fuera de ventana/router no
+      inyectado/confirmer caído + e2e «sí» sin clasificador y saludo intacto con draft
+      esperando) y tool deshabilitada en `test_orders_graph.py` y
+      `test_appointments_graph.py` (nodo `select_action` + e2e).
 
 ## Fase 5 — evals + contratos + endpoints legacy + docs + smoke
 

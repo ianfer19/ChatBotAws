@@ -1,9 +1,9 @@
 # Slice: appointments
 
 > Paso de implementación: **Pasos 3 y 5**. Estado: **Paso 3 hecho** (grafo, `AgentState`,
-> tools) y **Fase 2 del Paso 5 hecha** (propose/commit con política de riesgo, reglas 2 y 3,
-> estados canónicos, drafts). Pendiente en la ruta: adapter legacy (Paso 11) y
-> `Deps.allowed_tools` (Fase 4 del Paso 5).
+> tools), **Fase 2 del Paso 5 hecha** (propose/commit con política de riesgo, reglas 2 y 3,
+> estados canónicos, drafts) y **Fase 4 del Paso 5 hecha** (`Deps.allowed_tools` con
+> intersección en `select_action`). Pendiente en la ruta: adapter legacy (Paso 11).
 
 ## Responsabilidad
 Reservas y citas de los comercios: consultar disponibilidad, proponer y cancelar citas y
@@ -45,10 +45,11 @@ canal (eso es `conversation_gateway`).
 
 ## Grafo (Pasos 3 y 5)
 - `application/graph.py` → `build_appointment_graph(llm, repo, clock, opening_hours,
-  drafts)`. Nodos en `application/nodes/`: `understand` (LLM → JSON validado en
+  drafts, allowed_tools=None)`. Nodos en `application/nodes/`: `understand` (LLM → JSON validado en
   `AppointmentProposal`, con reintento único y degradación a aclaración; el `system`
   incluye «hoy es `YYYY-MM-DD` (día)» con el `ClockPort`), `validate` + `need_more?`
-  (regla 4), `select_action` (allowlist `ALLOWED_TOOLS`; sin `tool_name` si no aplica),
+  (regla 4), `select_action` (allowlist `ALLOWED_TOOLS` intersecada con
+  `Deps.allowed_tools` — mínimo privilegio por comercio; sin `tool_name` si no aplica),
   `call_tool` (despacho con `conversation_id`/`message`; un `AppError` de la tool se
   traduce en `tool_error` y se loguea `draft_id`/`draft_status`/`policy`),
   `validate_result` + `needs_confirmation?` (coherencia del resultado; la confirmación
@@ -63,8 +64,9 @@ canal (eso es `conversation_gateway`).
   (`TODO(decision)`: multi-turno con checkpointer en el Paso 8).
 - Confirmación (ADR 0011): ninguna tool escribe datos reales directamente. Las tools de
   escritura crean un `PendingDraft`, el dominio decide `AUTO` (commit inmediato con
-  `VENTANA_DESHACER` de 30 min) o `CONFIRM` (draft `AWAITING_CONFIRMATION` que confirmará
-  el router del supervisor en la Fase 4); `confirm_draft` exige el `payload_hash`.
+  `VENTANA_DESHACER` de 30 min) o `CONFIRM` (draft `AWAITING_CONFIRMATION` que confirma
+  el router `resolve_pending` del supervisor con `ConfirmerPort`, Fase 4);
+  `confirm_draft` exige el `payload_hash`.
 
 ## Tablas y recursos AWS
 | Recurso | Por qué | Paso |
@@ -134,7 +136,9 @@ turno nunca se rompe por un fallo de negocio.
 - `tests/contract/` (Fase 2, hecho): `test_appointments_tools_contract.py` — la
   propuesta rechaza `tenant_id` y claves de más, el `ToolResult` es inmutable y las tools
   de escritura solo admiten argumentos nombrados y anotados.
-- Pendiente (Fase 4): tool deshabilitada vía `Deps.allowed_tools`.
+- Fase 4 (hecho): tool deshabilitada en `tests/unit/test_appointments_graph.py`
+  (`test_select_action_recorta_las_tools_por_el_comercio` y
+  `test_e2e_tool_fuera_del_entitlement_no_ejecuta_ni_se_inventa`).
 - Pendiente (Fase 5): `tests/agent_evals/datasets/` — "quiero una cita el viernes" sin
   hora → pide confirmación en vez de crear; "cambiar la hora…" → sin tool de escritura.
 - Manual contra Bedrock (hecho el 2026-10-08, cuenta `iastock-old`): REPL

@@ -1,9 +1,9 @@
 # Slice: orders
 
-> Paso de implementación: **Paso 5**. Estado: **Fase 3 del Paso 5 hecha** (dominio,
-> tools propose/commit, grafo y enlace `route_orders` del supervisor). Pendiente en la
-> ruta: adapter legacy real (Paso 11), catálogo desde RAG/Aurora (Paso 7),
-> `Deps.allowed_tools` (Fase 4 del Paso 5) y `resolve_pending` (Fase 4).
+> Paso de implementación: **Paso 5**. Estado: **Fase 4 del Paso 5 hecha** (dominio,
+> tools propose/commit, grafo, enlace `route_orders`, `Deps.allowed_tools` con
+> intersección en `select_action` y router `resolve_pending` en el supervisor).
+> Pendiente en la ruta: adapter legacy real (Paso 11), catálogo desde RAG/Aurora (Paso 7).
 
 ## Responsabilidad
 Pedidos del comercio: catálogo, consulta de estado y creación con confirmación humana
@@ -45,12 +45,14 @@ intención ni redacta la respuesta final.
 
 ## Grafo (Fase 3 del Paso 5)
 - `application/graph.py` → `build_order_graph(llm, legacy, catalog, clock,
-  kitchen_hours, drafts, minimum=MINIMO_COMPRA, amount_threshold=MONTO_UMBRAL)`.
+  kitchen_hours, drafts, minimum=MINIMO_COMPRA, amount_threshold=MONTO_UMBRAL,
+  allowed_tools=None)`.
   Nodos en `application/nodes/`: `understand` (LLM → JSON validado en `OrderProposal`,
   con reintento y degradación a aclaración; el `system` incluye «ahora es `YYYY-MM-DD`
   (día)» con el `ClockPort` para juzgar el horario de cocina), `validate` + `need_more?`
   (carrito obligatorio para proponer; `query`/`order_id` según la tool), `select_action`
-  (allowlist `ALLOWED_TOOLS`; sin `tool_name` si no aplica), `call_tool` (despacho con
+  (allowlist `ALLOWED_TOOLS` intersecada con `Deps.allowed_tools` — mínimo privilegio
+  por comercio; sin `tool_name` si no aplica), `call_tool` (despacho con
   `conversation_id`/`message`; un `AppError` se traduce en `tool_error`),
   `validate_result` + `needs_confirmation?` (coherencia; la confirmación sale del
   `draft_status`) y `respond` (redacción: espera confirmación si el draft está
@@ -67,7 +69,9 @@ intención ni redacta la respuesta final.
   supervisor en la Fase 4); `confirm_draft` exige el `payload_hash`.
 - Supervisor (`supervisor/application/graph.py`): `build_supervisor_graph(...,
   orders_graph=None)` añade el nodo `route_orders` (nodo anidado, ADR 0010); `None`
-  deja los pedidos en `route_pending` (retrocompatible).
+  deja los pedidos en `route_pending` (retrocompatible). El router
+  `supervisor/domain/ports.py::ConfirmerPort` (`affirm`/`deny`/`undo`) confirma y
+  deshace los drafts de este slice con el `payload_hash` exacto (Fase 4, ADR 0011 §5).
 
 ## Tablas y recursos AWS
 | Recurso | Por qué | Paso |
@@ -149,8 +153,10 @@ Los errores de tool llegan a `respond` como `tool_error` (`code` + mensaje inter
 - Supervisor (Fase 3, hecho): `tests/unit/test_supervisor_graph.py` — `route_orders`
   invoca el especialista con los ids resueltos; sin `orders_graph` el turno cae en
   `route_pending` sin reply.
-- Pendiente (Fase 4): tool deshabilitada vía `Deps.allowed_tools` y router
-  `resolve_pending`.
+- Fase 4 (hecho): tool deshabilitada en `tests/unit/test_orders_graph.py`
+  (`test_select_action_recorta_las_tools_por_el_comercio` y
+  `test_e2e_tool_fuera_del_entitlement_no_ejecuta_ni_se_inventa`) y router
+  `resolve_pending` en `tests/unit/test_supervisor_resolve_pending.py`.
 - Pendiente (Fase 5): `tests/agent_evals/datasets/` — "cambiar la hora de mi pedido" →
   sin tool + rechazo (capa 5); "lo de siempre" → `AUTO` sin ritual; monto alto →
   `AWAITING`.

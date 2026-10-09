@@ -178,12 +178,14 @@ def _deps(
     llm: _FakeLLM,
     *,
     repo: InMemoryOrderRepository | None = None,
+    allowed_tools: frozenset[ToolName] | None = None,
 ) -> tuple[Deps, InMemoryOrderRepository]:
     """Construye las dependencias de los nodos con dobles en memoria.
 
     Args:
         llm: Doble guionizado del modelo.
         repo: Repositorio reutilizable entre nodos.
+        allowed_tools: Entitlements finos del comercio (`None` = allowlist completa).
 
     Returns:
         Tupla con las dependencias y su repositorio.
@@ -200,6 +202,7 @@ def _deps(
             kitchen_hours=(COCINA_LUNES,),
         ),
         clock=reloj,
+        allowed_tools=allowed_tools,
     )
     return deps, repositorio
 
@@ -260,12 +263,14 @@ def _grafo(
     salidas: list[str],
     *,
     repo: InMemoryOrderRepository | None = None,
+    allowed_tools: frozenset[ToolName] | None = None,
 ) -> tuple[Any, _FakeLLM, InMemoryOrderRepository]:
     """Grafo compilado con LLM guionizado y dobles en memoria.
 
     Args:
         salidas: Textos que devolverá el LLM, uno por invocación.
         repo: Repositorio reutilizable para asertar sobre lo persistido.
+        allowed_tools: Entitlements finos del comercio (`None` = allowlist completa).
 
     Returns:
         Tupla con el grafo, el doble de LLM y el repositorio.
@@ -280,6 +285,7 @@ def _grafo(
         clock=reloj,
         kitchen_hours=(COCINA_LUNES,),
         drafts=InMemoryDraftStore(clock=reloj),
+        allowed_tools=allowed_tools,
     )
     return grafo, llm, repositorio
 
@@ -396,6 +402,22 @@ def test_ruta_tras_accion_decide_entre_tool_y_respuesta() -> None:
     """Con `tool_name` se ejecuta; sin él se responde directo (saludo/aclaración)."""
     assert ruta_tras_accion(_turno("x", tool_name="get_menu")) == "call_tool"
     assert ruta_tras_accion(_turno("x")) == "respond"
+
+
+def test_select_action_recorta_las_tools_por_el_comercio() -> None:
+    """`allowed_tools` del comercio intersecta con la allowlist (mínimo privilegio)."""
+    llm = _FakeLLM([])
+    deps, _ = _deps(llm, allowed_tools=frozenset({"propose_order"}))
+    sin_entitlement = select_action(
+        _turno("bebidas", proposal=OrderProposal(action="get_menu"), missing_fields=[]),
+        deps=deps,
+    )
+    assert "tool_name" not in sin_entitlement
+    assert ruta_tras_accion(sin_entitlement) == "respond"
+    con_entitlement = select_action(
+        _turno("pedido", proposal=_propuesta_pedir(), missing_fields=[]), deps=deps
+    )
+    assert con_entitlement["tool_name"] == "propose_order"
 
 
 # -------------------------------------------------------------------------------- call_tool
@@ -604,6 +626,22 @@ def test_e2e_consulta_el_menu_con_precios_reales() -> None:
     assert estado["needs_confirmation"] is False
     assert [(p.sku, p.price) for p in estado["tool_result"].products] == [("P-100", 5_000.0)]
     assert _pedidos(repo) == []
+
+
+def test_e2e_tool_fuera_del_entitlement_no_ejecuta_ni_se_inventa() -> None:
+    """Comercio sin `get_menu`: la petición se interpreta, pero nada se ejecuta."""
+    grafo, llm, repo = _grafo(
+        [JSON_MENU, "Ahora mismo no puedo mostrarte el menú."],
+        allowed_tools=frozenset({"propose_order"}),
+    )
+    estado = grafo.invoke(_turno("¿Qué bebidas hay?"))
+    assert estado["proposal"].action == "get_menu"
+    assert "tool_name" not in estado
+    assert "tool_result" not in estado
+    assert _pedidos(repo) == []
+    assert len(llm.calls) == 2
+    system = llm.calls[1]["system"]
+    assert isinstance(system, str) and "no está habilitada" in system
 
 
 def test_e2e_json_con_tenant_ajeno_no_ejecuta_nada() -> None:

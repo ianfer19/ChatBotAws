@@ -8,8 +8,8 @@ pasan dobles (ver `docs/architecture/HEXAGONAL_AND_SLICING.md`).
 from dataclasses import dataclass
 
 from shared.contracts import AgentName
-from shared.ports import LLMPort
-from slices.supervisor.domain.ports import ContextReaderPort, SpecialistGraphPort
+from shared.ports import DraftStorePort, LLMPort
+from slices.supervisor.domain.ports import ConfirmerPort, ContextReaderPort, SpecialistGraphPort
 
 
 @dataclass(frozen=True)
@@ -24,6 +24,11 @@ class Deps:
         orders_graph: Grafo de pedidos compilado (invocado por `route_orders`);
             `None` hasta que la composición lo inyecte (Fase 3 del Paso 5): sin él,
             los pedidos caen en `route_pending`.
+        draft_store: Store de drafts con el que `resolve_pending` lee el pendiente de
+            la conversación (Fase 4 del Paso 5); `None` desactiva el router.
+        confirmer: Resolución de drafts (affirm/deny/undo) que la composición despacha
+            al especialista dueño del draft; `None` deja los turnos en el flujo
+            normal (retrocompatible con composiciones previas).
     """
 
     llm: LLMPort
@@ -31,3 +36,5 @@ class Deps:
     allowed_bots: frozenset[AgentName]
     appointments_graph: SpecialistGraphPort
     orders_graph: SpecialistGraphPort | None = None
+    draft_store: DraftStorePort | None = None
+    confirmer: ConfirmerPort | None = None

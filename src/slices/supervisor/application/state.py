@@ -6,7 +6,7 @@ queda como `NotRequired` solo para poder construir en los tests el turno negativ
 debe fallar. El resto de campos los escriben los nodos a medida que avanza el grafo.
 """
 
-from typing import NotRequired, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 from shared.contracts import AgentName, CustomerContext, InboundMessage, Intent, RoutedTurn
 from shared.ports import LLMMessage
@@ -27,6 +27,9 @@ class SupervisorState(TypedDict):
             disponible); la escriben `greet` y `decide`.
         routed: Turno enrutado al especialista; lo escriben `route_*`.
         route_error: Código del error de enrutado traducido a respuesta, si lo hubo.
+        pending_outcome: Resolución de un draft pendiente hecha por `resolve_pending`
+            (`affirmed`, `denied` u `undoed`); solo presente cuando el router cerró el
+            turno sin pasar por `classify`.
     """
 
     message: InboundMessage
@@ -38,3 +41,4 @@ class SupervisorState(TypedDict):
     reply: NotRequired[str]
     routed: NotRequired[RoutedTurn]
     route_error: NotRequired[str]
+    pending_outcome: NotRequired[Literal["affirmed", "denied", "undoed"]]

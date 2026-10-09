@@ -30,7 +30,7 @@ from slices.orders.application.nodes import (
     validate,
     validate_result,
 )
-from slices.orders.application.schemas import KitchenHoursDay
+from slices.orders.application.schemas import KitchenHoursDay, ToolName
 from slices.orders.application.state import AgentState
 from slices.orders.application.tools import OrderTools
 from slices.orders.domain.policy import MONTO_UMBRAL
@@ -53,6 +53,7 @@ def build_order_graph(
     drafts: DraftStorePort,
     minimum: float = MINIMO_COMPRA,
     amount_threshold: float = MONTO_UMBRAL,
+    allowed_tools: frozenset[ToolName] | None = None,
 ) -> CompiledStateGraph[AgentState, Any, Any, Any]:  # pyrefly: ignore[bad-specialization]
     """Construye y compila el grafo de pedidos con las dependencias del entorno.
 
@@ -66,6 +67,8 @@ def build_order_graph(
             desarrollo, DynamoDB `pending_actions` en el Paso 6).
         minimum: Mínimo de compra del comercio (pesos).
         amount_threshold: Monto desde el cual el pedido exige confirmación.
+        allowed_tools: Entitlements finos del comercio (Fase 4 del Paso 5); `None`
+            permite toda la allowlist del slice.
 
     Returns:
         Grafo compilado, listo para `invoke` con un estado inicial `AgentState`.
@@ -85,11 +88,12 @@ def build_order_graph(
             amount_threshold=amount_threshold,
         ),
         clock=clock,
+        allowed_tools=allowed_tools,
     )
     graph = StateGraph(AgentState)  # pyrefly: ignore[bad-specialization]
     graph.add_node("understand", partial(understand, deps=deps))
     graph.add_node("validate", validate)
-    graph.add_node("select_action", select_action)
+    graph.add_node("select_action", partial(select_action, deps=deps))
     graph.add_node("call_tool", partial(call_tool, deps=deps))
     graph.add_node("validate_result", validate_result)
     graph.add_node("respond", partial(respond, deps=deps))

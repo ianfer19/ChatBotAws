@@ -4,7 +4,9 @@
 > intención, ruta propia de saludo, `allowed_bots`, contexto obligatorio por turno y
 > nodo anidado que invoca el grafo de citas. **Fase 3 del Paso 5**: el nodo anidado
 > `route_orders` invoca el grafo de pedidos cuando la composición lo inyecta
-> (`orders_graph=None` → `route_pending`). Handoff y abuso (`sentiment_handoff`,
+> (`orders_graph=None` → `route_pending`). **Fase 4 del Paso 5**: nodo `resolve_pending`
+> (router determinista de drafts, ADR 0011 §5) con `ConfirmerPort` y `DraftStorePort`
+> opcionales (`None` → router desactivado). Handoff y abuso (`sentiment_handoff`,
 > `abuse_protection`) siguen fuera de la ruta (ROADMAP §4).
 
 ## Responsabilidad
@@ -27,14 +29,24 @@ tools de negocio.
 ## Grafo (Paso 4)
 
 - `application/graph.py` → `build_supervisor_graph(llm, context_reader, allowed_bots,
-  appointments_graph, orders_graph=None)`. Nodos en `application/nodes/`:
+  appointments_graph, orders_graph=None, draft_store=None, confirmer=None)`. Nodos en
+  `application/nodes/`:
   `load_context` (exige `history`; lee el contexto con los ids del mensaje y falla si
-  no lo hay), `classify` (LLM → JSON `SupervisorDecision` con reintento; proveedor caído
+  no lo hay), `resolve_pending` (Fase 4 del Paso 5: si hay draft `AWAITING_CONFIRMATION`
+  en la ranura única de la conversación, decide «sí/no» con match exacto normalizado —
+  `domain/pending.py` — o con el LLM de respaldo `TAREA_PENDIENTE` que debe eco el
+  `payload_hash`; si solo hay un draft `COMMITTED` con ventana abierta, «cancelar»
+  exacto hace `undo`; resuelto → `reply` plantilla + `pending_outcome` y el turno
+  termina; sin match, hash desfasado, JSON ilegible, proveedor caído o `AppError` del
+  confirmer → degrada con log y el turno sigue normal), `classify` (LLM → JSON
+  `SupervisorDecision` con reintento; proveedor caído
   → palabras clave con log; salida ilegible → `confidence=0.0`), `decide`
   (`resolve_route` del dominio; sus errores se traducen a `reply` + `route_error`),
   `greet` (saludo neutral propio), `route_appointments` y `route_orders` (invocan el
   grafo de citas/pedidos ya compilado, ADR 0010) y `route_pending` (deja el `RoutedTurn`
   para ventas/faq y para pedidos cuando `orders_graph` no está inyectado).
+  Aristas: `START → load_context → resolve_pending → {classify | END}` (la ruta la fija
+  `ruta_tras_pendiente`: `END` solo cuando el router escribió `reply`).
   La ruta condicional `ruta_tras_decidir` solo manda a `route_orders` si el grafo de
   pedidos existe; en caso contrario va a `route_pending` (retrocompatible).
 - `SupervisorState` (`application/state.py`): el llamador pone `message` e `history`;
@@ -49,11 +61,19 @@ tools de negocio.
   de contexto de `customer_context` y el grafo de citas de `appointments` — **sin
   importarlos**: llegan como puertos del propio dominio (`ContextReaderPort`,
   `SpecialistGraphPort`) y la composición ocurre fuera (handler, REPL o tests).
+  Desde la **Fase 4 del Paso 5** también `DraftStorePort` (`shared/ports/`) y el
+  `ConfirmerPort` del propio dominio (`domain/ports.py`: `affirm`/`deny`/`undo` con
+  `tenant_id`, `draft_id` y `payload_hash`); ambos se inyectan opcionales en `Deps`
+  y su implementación real (el confirmer del especialista) se cablea en Fase 5.
 - Definidos en el **Paso 4**: `domain/errors.py` (`AmbiguousIntentError`,
   `IntentNotAllowedByTenant`, `MissingTurnInputsError`), `domain/ports.py`
   (`ContextReaderPort`, `SpecialistGraphPort`), `domain/routing.py` (`resolve_route`,
   `intent_from_keywords`, `saludo`), `application/` (`state.py`, `schemas.py`,
   `prompts.py`, `deps.py`, `nodes/`, `graph.py`) y `prompts/base/supervisor.md`.
+  Desde la **Fase 4 del Paso 5**: `domain/pending.py` (conjuntos exactos de
+  respuesta + plantillas `affirmed`/`denied`/`undoed`), `ConfirmerPort`,
+  `application/schemas.py::PendingAnswer`, `nodes/resolve_pending.py` y
+  `prompts.py::TAREA_PENDIENTE`.
 
 ## Tablas y recursos AWS
 
@@ -83,6 +103,15 @@ tools de negocio.
    (saludo) y `faq` no dependen de entitlements.
 6. Contexto obligatorio por turno (requisito 7.2): sin `history` o sin contexto, el
    turno **falla** en `load_context` — el prompt jamás se construye incompleto.
+7. **Router determinista de drafts (ADR 0011 §5, Fase 4 del Paso 5)**: mientras haya un
+   draft `AWAITING_CONFIRMATION` en la conversación, «sí»/«no» exactos (normalizados)
+   cierran el draft **sin clasificar ni invocar especialista**, con plantilla genérica;
+   el LLM de respaldo (`TAREA_PENDIENTE`) solo clasifica respuestas libres y debe eco
+   el `payload_hash` exacto. Sobre un draft `COMMITTED` dentro de su ventana,
+   «cancelar» exacto hace `undo`. Cualquier fallo (hash desfasado, JSON ilegible,
+   proveedor caído, `AppError` del confirmer, draft expirado) degrada con log
+   `supervisor.pending_resolution_failed` al agente normal: nunca se confirma a medias
+   y el saludo sigue teniendo su ruta propia (hay test de regresión con draft esperando).
 
 ## Tools expuestas al LLM
 
@@ -108,6 +137,11 @@ responde con el saludo plantilla del tenant.
   especialista conservando ids, fallo de Bedrock → palabras clave; Fase 3 del Paso 5:
   pedidos invocan `route_orders` con `conversation_id` compuesto, sin `orders_graph`
   caen en `route_pending` y `ruta_tras_decidir` distingue ambas rutas).
+- Unit router (Fase 4 del Paso 5, hecho): `tests/unit/test_supervisor_resolve_pending.py`
+  — match exacto sí/no sin LLM, respaldo con eco de `payload_hash`, hash desfasado y
+  JSON ilegible pasan al agente, draft expirado, undo dentro/fuera de ventana,
+  confirmer caído degrada con log, router no inyectado retrocompatible, e2e «sí» sin
+  clasificador y **saludo intacto con draft esperando**.
 - Eval (hecho): `tests/agent_evals/datasets/supervisor_routing.json` con su ejecutor
   `tests/agent_evals/test_supervisor_dataset.py` (`greeting_01/02`, `appointments_01`,
   `orders_01`, `allowed_bots_01`, `ambiguous_01`); el build falla si el saludo enruta

@@ -2,8 +2,8 @@
 
 Cada nodo recibe el estado completo y devuelve el trozo que escribe; LangGraph lo
 fusiona con el estado anterior. El orden y las aristas viven en `application/graph.py`
-(ROADMAP Paso 4). Los nodos no crean nada: LLM, lector de contexto, entitlements y los
-grafos de citas/pedidos llegan en `Deps`.
+(ROADMAP Paso 4, Fase 4 del Paso 5). Los nodos no crean nada: LLM, lector de contexto,
+entitlements, los grafos especialistas y el router de drafts llegan en `Deps`.
 """
 
 from slices.supervisor.application.deps import Deps
@@ -11,6 +11,7 @@ from slices.supervisor.application.nodes.classify import classify
 from slices.supervisor.application.nodes.decide import decide
 from slices.supervisor.application.nodes.greet import greet
 from slices.supervisor.application.nodes.load_context import load_context
+from slices.supervisor.application.nodes.resolve_pending import resolve_pending, ruta_tras_pendiente
 from slices.supervisor.application.nodes.route_appointments import route_appointments
 from slices.supervisor.application.nodes.route_orders import route_orders
 from slices.supervisor.application.nodes.route_pending import route_pending
@@ -21,10 +22,12 @@ __all__ = [
     "decide",
     "greet",
     "load_context",
+    "resolve_pending",
     "route_appointments",
     "route_orders",
     "route_pending",
     "ruta_tras_decidir",
+    "ruta_tras_pendiente",
 ]
 
 

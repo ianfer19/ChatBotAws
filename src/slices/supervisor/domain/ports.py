@@ -2,8 +2,10 @@
 
 El supervisor no importa otros slices: recibe estos puertos ya compuestos desde fuera
 (handler, REPL o tests). El lector de contexto lo implementa el slice `customer_context`
-y el grafo de especialista es el grafo compilado de `appointments` (composición por
-invocación, ADR 0010); la disciplina de aislamiento la verifica `lint-imports`.
+y el grafo de especialista es el grafo compilado de `appointments`/`orders` (composición
+por invocación, ADR 0010); el `ConfirmerPort` lo implementa la composición despachando al
+especialista dueño del draft (`kind`). La disciplina de aislamiento la verifica
+`lint-imports`.
 """
 
 from typing import Any, Protocol, runtime_checkable
@@ -53,5 +55,59 @@ class SpecialistGraphPort(Protocol):
 
         Returns:
             Estado final del especialista; el supervisor lee `reply`.
+        """
+        ...
+
+
+@runtime_checkable
+class ConfirmerPort(Protocol):
+    """Operaciones de resolución de drafts que el router hace sin invocar al agente (ADR 0011.5).
+
+    La implementación real vive en la composición (REPL/handler): despacha por el
+    `kind` del draft al `confirm_draft`/`cancel_draft`/`undo_draft` del especialista
+    dueño. La **modificación** de una propuesta no pasa por aquí: la gestiona el propio
+    especialista al proponer de nuevo (un draft activo reemplaza al anterior y lo deja
+    `SUPERSEDED`).
+
+    Todas las operaciones exigen el `payload_hash` o el `draft_id` correctos dentro del
+    comercio: un «sí» ligado a otro contenido no valida.
+    """
+
+    def affirm(self, *, tenant_id: str, draft_id: str, payload_hash: str) -> None:
+        """Confirma y ejecuta un draft `AWAITING_CONFIRMATION` de este comercio.
+
+        Args:
+            tenant_id: Comercio dueño del draft (siempre del contexto).
+            draft_id: Draft a confirmar.
+            payload_hash: Hash del contenido exacto que el cliente confirmó.
+
+        Raises:
+            AppError: `DraftNotFound`, `DraftNotCommittable` o hash desfasado; el
+                nodo `resolve_pending` lo degrada a turno normal con log.
+        """
+        ...
+
+    def deny(self, *, tenant_id: str, draft_id: str) -> None:
+        """Cancela un draft activo sin ejecutarlo («no» del cliente).
+
+        Args:
+            tenant_id: Comercio dueño del draft.
+            draft_id: Draft a cancelar.
+
+        Raises:
+            AppError: `DraftNotFound` o `DraftNotCommittable` (ya no está activo).
+        """
+        ...
+
+    def undo(self, *, tenant_id: str, draft_id: str) -> None:
+        """Deshace dentro de su ventana el draft ya commiteado («cancelar» tardío).
+
+        Args:
+            tenant_id: Comercio dueño del draft.
+            draft_id: Draft commiteado a deshacer.
+
+        Raises:
+            AppError: `DraftNotFound` o `DraftNotCommittable` (fuera de la ventana de
+                deshacer o el pedido/cita ya no admite cambios).
         """
         ...

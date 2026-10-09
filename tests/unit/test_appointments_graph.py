@@ -173,12 +173,14 @@ def _deps(
     llm: _FakeLLM,
     *,
     repo: InMemoryAppointmentRepository | None = None,
+    allowed_tools: frozenset[ToolName] | None = None,
 ) -> tuple[Deps, InMemoryAppointmentRepository]:
     """Construye las dependencias de los nodos con dobles en memoria.
 
     Args:
         llm: Doble guionizado del modelo.
         repo: Repositorio reutilizable entre nodos.
+        allowed_tools: Entitlements finos del comercio (`None` = allowlist completa).
 
     Returns:
         Tupla con las dependencias y su repositorio.
@@ -194,6 +196,7 @@ def _deps(
             drafts=InMemoryDraftStore(clock=reloj),
         ),
         clock=reloj,
+        allowed_tools=allowed_tools,
     )
     return deps, repositorio
 
@@ -252,12 +255,14 @@ def _grafo(
     salidas: list[str],
     *,
     repo: InMemoryAppointmentRepository | None = None,
+    allowed_tools: frozenset[ToolName] | None = None,
 ) -> tuple[Any, _FakeLLM, InMemoryAppointmentRepository]:
     """Grafo compilado con LLM guionizado y dobles en memoria.
 
     Args:
         salidas: Textos que devolverá el LLM, uno por invocación.
         repo: Repositorio reutilizable para asertar sobre lo persistido.
+        allowed_tools: Entitlements finos del comercio (`None` = allowlist completa).
 
     Returns:
         Tupla con el grafo, el doble de LLM y el repositorio.
@@ -270,6 +275,7 @@ def _grafo(
         clock=_RelojFijo(datetime(2026, 3, 2, 8, 0)),
         opening_hours=(LUNES,),
         drafts=InMemoryDraftStore(clock=_RelojFijo(datetime(2026, 3, 2, 8, 0))),
+        allowed_tools=allowed_tools,
     )
     return grafo, llm, repositorio
 
@@ -392,6 +398,26 @@ def test_ruta_tras_accion_decide_entre_tool_y_respuesta() -> None:
     """Con `tool_name` se ejecuta; sin él se responde directo (saludo/aclaración)."""
     assert ruta_tras_accion(_turno("x", tool_name="get_opening_hours")) == "call_tool"
     assert ruta_tras_accion(_turno("x")) == "respond"
+
+
+def test_select_action_recorta_las_tools_por_el_comercio() -> None:
+    """`allowed_tools` del comercio intersecta con la allowlist (mínimo privilegio)."""
+    llm = _FakeLLM([])
+    deps, _ = _deps(llm, allowed_tools=frozenset({"get_availability"}))
+    sin_entitlement = select_action(
+        _turno("cita", proposal=_propuesta_crear(), missing_fields=[]), deps=deps
+    )
+    assert "tool_name" not in sin_entitlement
+    assert ruta_tras_accion(sin_entitlement) == "respond"
+    con_entitlement = select_action(
+        _turno(
+            "huecos",
+            proposal=AppointmentProposal(action="get_availability"),
+            missing_fields=[],
+        ),
+        deps=deps,
+    )
+    assert con_entitlement["tool_name"] == "get_availability"
 
 
 # -------------------------------------------------------------------------------- call_tool
@@ -606,6 +632,22 @@ def test_e2e_consulta_disponibilidad_con_huecos_reales() -> None:
     assert estado["needs_confirmation"] is False
     assert len(estado["tool_result"].slots) == 3
     assert _citas(repo) == []
+
+
+def test_e2e_tool_fuera_del_entitlement_no_ejecuta_ni_se_inventa() -> None:
+    """Comercio sin `get_availability`: la petición se interpreta, pero nada se ejecuta."""
+    grafo, llm, repo = _grafo(
+        [JSON_CONSULTAR, "Ahora mismo no puedo mostrarte los huecos."],
+        allowed_tools=frozenset({"propose_appointment"}),
+    )
+    estado = grafo.invoke(_turno("¿Qué huecos hay el lunes?"))
+    assert estado["proposal"].action == "get_availability"
+    assert "tool_name" not in estado
+    assert "tool_result" not in estado
+    assert _citas(repo) == []
+    assert len(llm.calls) == 2
+    system = llm.calls[1]["system"]
+    assert isinstance(system, str) and "no está habilitada" in system
 
 
 def test_e2e_json_con_tenant_ajeno_no_ejecuta_nada() -> None:
