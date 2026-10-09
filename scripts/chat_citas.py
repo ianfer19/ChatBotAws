@@ -1,8 +1,9 @@
-"""REPL de desarrollo para probar el grafo de citas contra Bedrock (ROADMAP Paso 3).
+"""REPL de desarrollo para probar el supervisor y el grafo de citas contra Bedrock.
 
-Levanta el grafo real (LangGraph + `BedrockLLM`) con un repositorio en memoria y
-conversa por consola con el tenant indicado: sirve para ver un turno completo
-(interpretar → tool → redactar) sin desplegar nada. No es código de producción.
+Conversa por consola con el tenant indicado pasando por el supervisor real del Paso 4
+(clasificación, saludo propio, contexto obligatorio y enrutado), que a su vez invoca el
+grafo de citas con `BedrockLLM` y un repositorio en memoria. Sirve para ver un turno
+completo sin desplegar nada. No es código de producción.
 
 Uso (PowerShell, desde la raíz del repo):
 
@@ -34,25 +35,30 @@ from pydantic import ValidationError as PydanticValidationError
 
 from adapters.bedrock import BedrockLLM
 from shared.config import load_settings
+from shared.contracts import AgentName, InboundMessage
 from shared.errors import AppError
 from shared.logging import configure_logging
 from shared.ports import LLMMessage
 from slices.appointments.application.graph import build_appointment_graph
 from slices.appointments.application.schemas import OpeningHoursDay
-from slices.appointments.application.state import AgentState
 from slices.appointments.domain.entities import Appointment
 from slices.appointments.infrastructure.in_memory import InMemoryAppointmentRepository
+from slices.customer_context.application.tools import CustomerContextTools
+from slices.customer_context.infrastructure.in_memory import InMemoryCustomerContextStore
+from slices.supervisor.application.graph import build_supervisor_graph
 
 _TENANT_DEMO = "Sede_Elite_01"
-_HISTORIAL_MAX = 10  # ventana de mensajes que ve el LLM (mismo N que `AgentState`)
+_CLIENTE_DEMO = "57300111111"  # sintético: nunca datos reales de clientes en el repo
+_HISTORIAL_MAX = 10  # ventana de mensajes que ve el LLM (mismo N que los states)
 _SALIR = {"/salir", "/exit", "exit", "quit"}
 # Horario de prueba (lun a vie, 9:00-18:00, hora local naive): el real llega con RAG (Paso 7).
 _HORARIO: tuple[OpeningHoursDay, ...] = tuple(
     OpeningHoursDay(weekday=dia, open_time="09:00", close_time="18:00") for dia in range(5)
 )
+_BOTS_DEMO: frozenset[AgentName] = frozenset({"sales", "appointments", "orders", "faq"})
 _AYUDA = (
-    "Grafo de citas (Paso 3) sobre Bedrock. Comandos: /status, /reset, /salir "
-    "(o Ctrl+D / Ctrl+C)."
+    "Supervisor + grafo de citas (Paso 4) sobre Bedrock. Comandos: /status, /reset, "
+    "/salir (o Ctrl+D / Ctrl+C)."
 )
 
 
@@ -69,10 +75,10 @@ class _RelojLocal:
 
 
 class _Sesion:
-    """Sesión de prueba: grafo compilado con Bedrock, historial y citas en memoria."""
+    """Sesión de prueba: grafo del supervisor con Bedrock, historial y citas en memoria."""
 
     def __init__(self, *, tenant: str) -> None:
-        """Carga la configuración, el modelo y compila el grafo del tenant.
+        """Carga la configuración, el modelo y compila el supervisor con su especialista.
 
         Args:
             tenant: Comercio simulado (el gateway lo resolverá en el Paso 9).
@@ -80,7 +86,7 @@ class _Sesion:
         Raises:
             PydanticValidationError: Si falta `CHATBOT_BEDROCK_MODEL_ID` (fail fast).
             NoRegionError: Si el entorno no define región de AWS.
-            AppError: Si el prompt base de citas no se puede cargar.
+            AppError: Si falta algún prompt base (citas o supervisor).
         """
         settings = load_settings()
         self.tenant = tenant
@@ -88,36 +94,50 @@ class _Sesion:
         self.historial: list[LLMMessage] = []
         self.turnos = 0
         self.repo = InMemoryAppointmentRepository()
+        reloj = _RelojLocal()
         llm = BedrockLLM(
             model_id=settings.bedrock_model_id,
             timeout_seconds=settings.bedrock_timeout_seconds,
         )
-        self.grafo = build_appointment_graph(
+        citas = build_appointment_graph(
             llm=llm,
             repo=self.repo,
-            clock=_RelojLocal(),
+            clock=reloj,
             opening_hours=_HORARIO,
+        )
+        lector = CustomerContextTools(store=InMemoryCustomerContextStore(clock=reloj), clock=reloj)
+        self.grafo = build_supervisor_graph(
+            llm=llm,
+            context_reader=lector,
+            allowed_bots=_BOTS_DEMO,
+            appointments_graph=citas,
         )
 
     def turno(self, mensaje: str) -> dict[str, object]:
-        """Ejecuta un turno completo del grafo y recorta la ventana de historial.
+        """Ejecuta un turno por el supervisor y recorta la ventana de historial.
 
         Args:
             mensaje: Texto del cliente para este turno.
 
         Returns:
-            Estado final devuelto por LangGraph (`reply`, `tool_result`, etc.).
+            Estado final de LangGraph (`reply`, `routed`, `intent`, `route_error`...).
         """
-        estado: AgentState = AgentState(
+        entrada = InboundMessage(
             tenant_id=self.tenant,
             correlation_id=uuid.uuid4().hex,
-            user_message=mensaje,
-            history=list(self.historial),
+            channel="whatsapp",
+            customer_id=_CLIENTE_DEMO,
+            message_id=uuid.uuid4().hex,
+            timestamp=datetime.now(),
+            text=mensaje,
         )
-        resultado: dict[str, object] = self.grafo.invoke(estado)
-        reply = str(resultado.get("reply") or "")
+        resultado: dict[str, object] = self.grafo.invoke(
+            {"message": entrada, "history": list(self.historial)}
+        )
+        reply = resultado.get("reply")
         self.historial.append(LLMMessage(role="user", content=mensaje))
-        self.historial.append(LLMMessage(role="assistant", content=reply))
+        if isinstance(reply, str) and reply:
+            self.historial.append(LLMMessage(role="assistant", content=reply))
         del self.historial[:-_HISTORIAL_MAX]
         self.turnos += 1
         return resultado
@@ -157,7 +177,7 @@ def _argumentos(argv: Sequence[str] | None) -> argparse.Namespace:
         Namespace con `tenant`, `turno` y `debug`.
     """
     parser = argparse.ArgumentParser(
-        description="REPL de pruebas del grafo de citas contra Amazon Bedrock."
+        description="REPL de pruebas del supervisor (y sus grafos) contra Amazon Bedrock."
     )
     parser.add_argument(
         "--tenant",
@@ -191,20 +211,28 @@ def _imprimir_error(exc: AppError) -> None:
 
 
 def _imprimir_turno(resultado: dict[str, object], *, debug: bool) -> None:
-    """Muestra la respuesta del turno y, si se pide, el estado interno.
+    """Muestra la respuesta o la ruta del turno y, si se pide, el estado interno.
 
     Args:
         resultado: Estado final devuelto por el grafo.
-        debug: Si es `True`, imprime tool, faltantes y confirmación.
+        debug: Si es `True`, imprime intención, destino y error de enrutado.
     """
-    print(f"\n{resultado.get('reply') or '(sin respuesta)'}\n")
+    reply = resultado.get("reply")
+    routed = resultado.get("routed")
+    if isinstance(reply, str) and reply:
+        print(f"\n{reply}\n")
+    elif routed is not None:
+        destino = getattr(routed, "target", "?")
+        print(f"\n[enrutado a {destino}: agente especialista aún no implementado]\n")
+    else:
+        print("\n(sin respuesta)\n")
     if debug:
         print(
             "  [debug] "
-            f"tool={resultado.get('tool_name')} "
-            f"faltan={resultado.get('missing_fields')} "
-            f"confirmar={resultado.get('needs_confirmation')} "
-            f"error={resultado.get('tool_error')}"
+            f"intencion={resultado.get('intent')} "
+            f"confianza={resultado.get('confidence')} "
+            f"destino={resultado.get('target')} "
+            f"error_ruta={resultado.get('route_error')}"
         )
 
 
