@@ -49,6 +49,7 @@ lógica de negocio arranca en el Paso 5. La ruta activa es [docs/ROADMAP.md](doc
 │   ├── adr/                   # Architecture Decision Records (0001..0009)
 │   ├── ai/                    # Prompts, guardrails, RAG, memoria, evals
 │   ├── security/              # Threat model, retención de datos
+│   ├── progress/              # Checklist vivo del paso en curso (Paso 5)
 │   └── runbooks/              # Procedimientos operativos (índice)
 │
 ├── src/
@@ -254,6 +255,7 @@ Mismo patrón para cualquier regla crítica: ninguna depende solo del prompt.
 | D5 | `tenant_id` = `store_id` legado, resuelto en el gateway y propagado en todo el contexto | [0003](docs/adr/0003-multi-tenancy-tenant-en-gateway.md) |
 | D6 | Retención de conversaciones/media: **pendiente**, fuera de la ruta (ROADMAP §4) | [0007](docs/adr/0007-retencion-de-conversaciones-y-media.md) |
 | D7 | Supervisor compone a los especialistas por invocación (nodo anidado tras un port) | [0010](docs/adr/0010-composicion-de-grafos-por-invocacion.md) |
+| D8 | Confirmación por política de riesgo con drafts propose/commit (sin ritual fijo; sin depender del checkpointer) | [0011](docs/adr/0011-confirmacion-por-politica-con-drafts.md) |
 
 Requisitos de corrección que deben mantenerse siempre (con sus tests):
 **saludo** → intención `greeting`/`smalltalk` con ruta propia y saludo neutral, sin enrutar
@@ -290,7 +292,7 @@ de las fases históricas 1–9 a los pasos nuevos).
 | 2 | Bedrock + abstracción de modelos (`adapters/bedrock`, Converse API) | **hecho** |
 | 3 | LangGraph: grafo de citas + `AgentState` en `appointments/application` | **hecho** |
 | 4 | Supervisor (routing, saludo) + `customer_context` (contexto obligatorio por turno) | **hecho** |
-| 5 | Tools + lógica de negocio (citas, pedidos) con dobles en memoria | pendiente |
+| 5 | Tools + lógica de negocio (citas, pedidos) con dobles en memoria | **en curso** (ver [docs/progress/](docs/progress/)) |
 | 6 | Infraestructura Terraform base (state, red, DynamoDB, S3, Aurora, IAM, apigw, lambda) | pendiente |
 | 7 | RAG + Aurora/pgvector (`knowledge_rag`, `VectorStorePort` → `adapters/aurora`) | pendiente |
 | 8 | Memory / checkpoints (checkpointer de LangGraph, ADR 0007) | pendiente |

@@ -84,3 +84,4 @@ Reglas complementarias:
 | 0008 | [Contextual grounding en el chatbot](0008-contextual-grounding-en-chatbot.md) | Aceptado | 2026-10-07 |
 | 0009 | [ChannelPort único para los canales Meta](0009-channelport-unico-canales-meta.md) | Aceptado | 2026-10-07 |
 | 0010 | [Composición de grafos por invocación](0010-composicion-de-grafos-por-invocacion.md) | Aceptado | 2026-10-08 |
+| 0011 | [Confirmación por política con drafts](0011-confirmacion-por-politica-con-drafts.md) | Aceptado | 2026-10-09 |

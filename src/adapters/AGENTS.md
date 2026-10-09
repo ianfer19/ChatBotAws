@@ -14,6 +14,7 @@ y sin importar `slices.*` (lo verifica import-linter en CI).
 
 | Paquete | Servicio | Implementa | Paso |
 |---|---|---|---|
+| `in_memory/` | Sin servicio (dobles en memoria de puertos compartidos) | `DraftStorePort` | 5 |
 | `bedrock/` | Amazon Bedrock (modelos, Guardrails, Prompt Management) | `shared.ports.LLMPort` + cliente de guardrails/prompt | 2 y 13 |
 | `agentcore/` | Bedrock AgentCore (Runtime, Memory, Gateway, Identity, Policy) | puertos de memoria/gateway | 10–12 |
 | `dynamodb/` | DynamoDB (tablas operacionales) | puertos de persistencia de contexto/conversación/abuso | 6 |
@@ -24,8 +25,9 @@ y sin importar `slices.*` (lo verifica import-linter en CI).
 
 **Estado**: `bedrock/` está implementado desde el **Paso 2** — `BedrockLLM(LLMPort)` sobre la
 Converse API, con `bedrock_model_id` (obligatorio) y `bedrock_timeout_seconds` de `Settings`;
-el cliente de Guardrails/Prompt Management llega en el Paso 13. Las demás carpetas son
-esqueletos que se rellenan en sus pasos.
+el cliente de Guardrails/Prompt Management llega en el Paso 13. `in_memory/` existe desde el
+**Paso 5** (`InMemoryDraftStore`, doble de `DraftStorePort`; el real llega con `dynamodb/`
+en el Paso 6). Las demás carpetas son esqueletos que se rellenan en sus pasos.
 
 ## Reglas
 

@@ -6,14 +6,30 @@ from shared.contracts.messages import (
     OutboundMessage,
     RoutedTurn,
 )
+from shared.contracts.pending import (
+    ACTIVE_STATUSES,
+    COMMITIBLE_STATUSES,
+    ConfirmationPolicy,
+    DraftStatus,
+    PendingDraft,
+    PolicyDecision,
+    compute_payload_hash,
+)
 from shared.contracts.types import AgentName, Channel, Intent
 
 __all__ = [
+    "ACTIVE_STATUSES",
+    "COMMITIBLE_STATUSES",
     "AgentName",
     "Channel",
+    "ConfirmationPolicy",
     "CustomerContext",
+    "DraftStatus",
     "InboundMessage",
     "Intent",
     "OutboundMessage",
+    "PendingDraft",
+    "PolicyDecision",
     "RoutedTurn",
+    "compute_payload_hash",
 ]

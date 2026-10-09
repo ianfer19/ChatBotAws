@@ -72,3 +72,5 @@ fuente de verdad: la disponibilidad, los precios y el estado salen de tools vali
 - Un paso se da por cerrado solo con su criterio de «Hecho cuando…» de la tabla §1.
 - Los cambios estructurales nuevos generan ADR; los precios quedan en
   `TODO(verify pricing)` hasta el Paso 14.
+- El checklist vivo del paso en curso (qué fase va, qué falta y qué se hizo) está en
+  [docs/progress/](progress/); su fila en `AGENTS.md` §10 marca el estado global.
