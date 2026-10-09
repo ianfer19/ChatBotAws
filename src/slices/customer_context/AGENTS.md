@@ -1,7 +1,8 @@
 # Slice: customer_context
 
-> Paso de implementación: **Paso 4**. Estado: **definido, sin implementar**. Responsable
-> del contexto obligatorio de cada turno.
+> Paso de implementación: **Paso 4**. Estado: **implementado** — tool de lectura
+> `get_customer_context`, escritura por eventos y doble en memoria con TTL (Paso 6 pasa
+> el almacén a DynamoDB).
 
 ## Responsabilidad
 
@@ -23,6 +24,11 @@ verdad de negocio: precios, stock, pedidos y horas vienen del legacy/dominio.
   `update_customer_context`.
 - Consume: `shared.ports` de persistencia (implementado en `adapters/dynamodb`),
   contratos de eventos de otros slices (solo los consume; no importa sus módulos).
+- Definidos en el **Paso 4**: `domain/ports.py` (`CustomerContextPort`),
+  `domain/errors.py` (`ContextStaleError`), `application/tools.py`
+  (`CustomerContextTools`: `get_customer_context` es la tool, `update_customer_context`
+  el caso de uso de escritura) e `infrastructure/in_memory.py`
+  (`InMemoryCustomerContextStore`, doble con TTL hasta el Paso 6).
 
 ## Tablas y recursos AWS
 
@@ -56,13 +62,17 @@ verdad de negocio: precios, stock, pedidos y horas vienen del legacy/dominio.
 
 | Error | Cuándo | Traducción |
 |---|---|---|
-| `CustomerContextNotFound` | Cliente nuevo / sin historial | Contexto vacío por defecto (no es error) |
-| `ContextStaleError` | TTL vencido | Contexto vacío + relectura en el siguiente turno |
-| Timeout DynamoDB | Caída de servicio | Turno continúa SIN contexto + log de degradación |
+| Cliente nuevo / sin historial | No hay contexto guardado | Contexto vacío por defecto; **no es error y no se lanza** (`domain/errors.py`) |
+| `ContextStaleError` | El almacén detecta TTL vencido | Contexto vacío + log info + relectura en el siguiente turno (el caso de uso lo traduce) |
+| Timeout DynamoDB | Caída de servicio (Paso 6) | Turno continúa SIN contexto + log de degradación |
 
 ## Cómo probarlo
 
-- Unit (`tests/unit/`): CRUD con reloj controlado (`ClockPort`), aislamiento por tenant.
-- Contract: esquema de `CustomerContext` (round-trip).
+- Unit (`tests/unit/test_customer_context.py`, hecho): CRUD con reloj controlado,
+  aislamiento por tenant, ids vacíos rechazados, TTL vencido (error de dominio y
+  traducción a vacío con log) y fusión de `update_customer_context`.
+- Contract (hecho): round-trip de `CustomerContext` en
+  `tests/unit/test_shared_contracts.py`.
 - Eval (`tests/agent_evals/datasets/`): **caso obligatorio de contexto ausente**: si el
-  prompt se construye sin contexto ni historial, el test falla (requisito 7.2).
+  prompt se construye sin contexto ni historial, el test falla (requisito 7.2) — vive en
+  los tests del supervisor (Paso 4).
