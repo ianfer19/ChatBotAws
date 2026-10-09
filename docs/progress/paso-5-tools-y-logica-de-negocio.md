@@ -6,7 +6,7 @@
 > [ROADMAP §1 fila 5](../ROADMAP.md). Decisiones de alcance: ADR
 > [0011](../adr/0011-confirmacion-por-politica-con-drafts.md).
 >
-> **Estado global: Fase 1 de 5 completada; siguiente: Fase 2 (appointments).**
+> **Estado global: Fase 2 de 5 completada; siguiente: Fase 3 (orders).**
 
 ## Decisiones cerradas con el usuario (2026-10-09)
 
@@ -27,12 +27,12 @@
 
 ## Fase 2 — appointments: propose/commit + reglas + estados
 
-- [ ] `domain`: solapes y horario (reglas 2 y 3), errores `SlotUnavailable`/`OutsideOpeningHours`,
+- [x] `domain`: solapes y horario (reglas 2 y 3), errores `SlotUnavailable`/`OutsideOpeningHours`,
       estados canónicos, `policy.py` (`decide`), `confirm_draft`/`cancel_draft`/`undo_draft`.
-- [ ] Tools: renombre `create_appointment` → `propose_appointment` (escribe draft +
+- [x] Tools: renombre `create_appointment` → `propose_appointment` (escribe draft +
       aplica política), commit idempotente; grafo/prompts/allowlist actualizados.
-- [ ] `LegacyOpsPort` (Protocol, endpoints del catálogo; sin HTTP hasta el Paso 11).
-- [ ] Tests unit actualizados + primeros `tests/contract/`.
+- [x] `LegacyOpsPort` (Protocol, endpoints del catálogo; sin HTTP hasta el Paso 11).
+- [x] Tests unit actualizados + primeros `tests/contract/`.
 
 ## Fase 3 — orders: dominio + tools + grafo + enlace al supervisor
 

@@ -17,7 +17,7 @@ from typing import Any
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
-from shared.ports import ClockPort, LLMPort
+from shared.ports import ClockPort, DraftStorePort, LLMPort
 from slices.appointments.application.deps import Deps
 from slices.appointments.application.nodes import (
     call_tool,
@@ -47,6 +47,7 @@ def build_appointment_graph(
     repo: AppointmentRepositoryPort,
     clock: ClockPort,
     opening_hours: Sequence[OpeningHoursDay],
+    drafts: DraftStorePort,
 ) -> CompiledStateGraph[AgentState, Any, Any, Any]:  # pyrefly: ignore[bad-specialization]
     """Construye y compila el grafo de citas con las dependencias del entorno.
 
@@ -55,6 +56,8 @@ def build_appointment_graph(
         repo: Repositorio de citas (en memoria hasta el Paso 6).
         clock: Reloj inyectable para descartar huecos pasados.
         opening_hours: Horario de atención del comercio (falso hasta RAG/Paso 7).
+        drafts: Store de propuestas pendientes (ADR 0011; `InMemoryDraftStore` en
+            desarrollo, DynamoDB `pending_actions` en el Paso 6).
 
     Returns:
         Grafo compilado, listo para `invoke` con un estado inicial `AgentState`.
@@ -64,7 +67,7 @@ def build_appointment_graph(
     """
     deps = Deps(
         llm=llm,
-        tools=AppointmentTools(repo=repo, clock=clock, opening_hours=opening_hours),
+        tools=AppointmentTools(repo=repo, clock=clock, opening_hours=opening_hours, drafts=drafts),
         clock=clock,
     )
     graph = StateGraph(AgentState)  # pyrefly: ignore[bad-specialization]

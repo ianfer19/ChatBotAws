@@ -12,7 +12,7 @@ from slices.appointments.application.state import AgentState
 ALLOWED_TOOLS: frozenset[str] = frozenset(
     {
         "get_availability",
-        "create_appointment",
+        "propose_appointment",
         "cancel_appointment",
         "get_opening_hours",
     }

@@ -22,7 +22,7 @@ def validate(state: AgentState) -> AgentState:
     """
     proposal = state["proposal"]
     faltantes: list[str]
-    if proposal.action == "create_appointment":
+    if proposal.action == "propose_appointment":
         faltantes = missing_appointment_fields(
             date=proposal.date,
             time=proposal.time,

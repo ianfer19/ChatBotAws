@@ -20,6 +20,7 @@ from _aws import (  # pyrefly: ignore[missing-import]
 from botocore.exceptions import NoRegionError
 
 from adapters.bedrock import BedrockLLM
+from adapters.in_memory import InMemoryDraftStore
 from shared.config import load_settings
 from shared.errors import ToolError
 from slices.appointments.application.graph import build_appointment_graph
@@ -63,17 +64,20 @@ def test_grafo_de_citas_responde_un_saludo_con_bedrock() -> None:
     except NoRegionError:
         pytest.skip("sin región de AWS: define AWS_DEFAULT_REGION (p. ej. us-east-1)")
 
+    reloj = _RelojFijo()
     grafo = build_appointment_graph(
         llm=llm,
         repo=InMemoryAppointmentRepository(),
-        clock=_RelojFijo(),
+        clock=reloj,
         opening_hours=_HORARIO,
+        drafts=InMemoryDraftStore(clock=reloj),
     )
     try:
         estado = grafo.invoke(
             {
                 "tenant_id": _TENANT,
                 "correlation_id": "smoke-paso-3",
+                "conversation_id": "smoke:57300111111",
                 "user_message": "hola",
             }
         )

@@ -36,6 +36,10 @@ def route_appointments(state: SupervisorState, *, deps: Deps) -> SupervisorState
     entrada = {
         "tenant_id": mensaje.tenant_id,
         "correlation_id": mensaje.correlation_id,
+        # Compuesto hasta que el gateway aporte la conversación real (Paso 9,
+        # TODO(verify)): estable entre turnos del mismo cliente en el mismo canal,
+        # que es lo que exige la ranura de drafts del ADR 0011.
+        "conversation_id": f"{mensaje.channel}:{mensaje.customer_id}",
         "user_message": mensaje.text or "",
         "history": list(state["history"]),
     }

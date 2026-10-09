@@ -38,7 +38,7 @@ def _cita(
         starts_at=start,
         customer_name="Ana Pérez",
         contact="3001112233",
-        status="created",
+        status="confirmed",
         correlation_id=correlation_id,
     )
 

@@ -34,6 +34,7 @@ from botocore.exceptions import NoRegionError
 from pydantic import ValidationError as PydanticValidationError
 
 from adapters.bedrock import BedrockLLM
+from adapters.in_memory import InMemoryDraftStore
 from shared.config import load_settings
 from shared.contracts import AgentName, InboundMessage
 from shared.errors import AppError
@@ -104,6 +105,7 @@ class _Sesion:
             repo=self.repo,
             clock=reloj,
             opening_hours=_HORARIO,
+            drafts=InMemoryDraftStore(clock=reloj),
         )
         lector = CustomerContextTools(store=InMemoryCustomerContextStore(clock=reloj), clock=reloj)
         self.grafo = build_supervisor_graph(

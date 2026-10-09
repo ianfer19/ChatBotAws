@@ -374,6 +374,7 @@ def test_turno_de_citas_invoca_el_grafo_y_conserva_ids() -> None:
         {
             "tenant_id": TENANT,
             "correlation_id": "corr-1",
+            "conversation_id": "whatsapp:57300111111",
             "user_message": "Quiero una cita",
             "history": _historial(),
         }

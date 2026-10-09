@@ -76,3 +76,71 @@ class AppointmentRepositoryPort(Protocol):
             ValidationError: Si `start` es posterior a `end`.
         """
         ...
+
+
+@runtime_checkable
+class LegacyOpsPort(Protocol):
+    """Disponibilidad y creación reales en el backend legacy (`ops_service`).
+
+    Declarado en el Paso 5 pero sin implementación HTTP hasta el Paso 11 (llamada a
+    través de AgentCore Gateway + Policy). El catálogo
+    (`sahagunonline/back/docs/catalogo_endpoints.md`) detalla Sales/Product/Auth pero
+    no el servicio de reservas: `TODO(verify)` — se asume el prefijo `/bookings`
+    observado en `ops_service`, confirmar contra el código fuente en el Paso 11
+    (ver `docs/architecture/INTEGRATION_WITH_LEGACY.md` §4).
+    """
+
+    def get_availability(self, *, tenant_id: str, date: str) -> Sequence[datetime]:
+        """Huecos ocupados del día en el legacy (la disponibilidad libre es el complemento).
+
+        Args:
+            tenant_id: Comercio consultado (mapeado al `store_id` legado).
+            date: Día en ISO (`YYYY-MM-DD`).
+
+        Returns:
+            Inicios de las citas ya agendadas en el legacy para ese día.
+
+        Raises:
+            ToolTimeoutError: Si el legacy no responde dentro del timeout.
+        """
+        ...
+
+    def create_appointment(
+        self,
+        *,
+        tenant_id: str,
+        date: str,
+        time: str,
+        customer_name: str,
+        contact: str,
+        correlation_id: str,
+    ) -> str:
+        """Crea la cita en el legacy y devuelve su identificador.
+
+        Args:
+            tenant_id: Comercio de la cita.
+            date: Fecha en ISO (`YYYY-MM-DD`).
+            time: Hora (`HH:MM`).
+            customer_name: Nombre del cliente.
+            contact: Medio de contacto del cliente.
+            correlation_id: Clave de idempotencia de la creación.
+
+        Returns:
+            Identificador de la cita creada en el legacy.
+
+        Raises:
+            ToolTimeoutError: Si el legacy no responde dentro del timeout.
+        """
+        ...
+
+    def cancel_appointment(self, *, tenant_id: str, appointment_id: str) -> None:
+        """Cancela la cita en el legacy.
+
+        Args:
+            tenant_id: Comercio dueño de la cita.
+            appointment_id: Cita a cancelar.
+
+        Raises:
+            ToolTimeoutError: Si el legacy no responde dentro del timeout.
+        """
+        ...

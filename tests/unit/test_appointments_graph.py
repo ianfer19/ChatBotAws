@@ -1,4 +1,4 @@
-"""Tests de los nodos y del grafo end-to-end de citas (ROADMAP Paso 3)."""
+"""Tests de los nodos y del grafo end-to-end de citas (Paso 5: propose/commit)."""
 
 from collections.abc import Sequence
 from datetime import datetime
@@ -6,6 +6,8 @@ from typing import Any, get_args
 
 import pytest
 
+from adapters.in_memory import InMemoryDraftStore
+from shared.contracts.pending import ConfirmationPolicy, DraftStatus
 from shared.errors import ToolError
 from shared.ports import LLMMessage, LLMResult
 from slices.appointments.application.deps import Deps
@@ -35,12 +37,14 @@ from slices.appointments.domain.entities import Appointment
 from slices.appointments.infrastructure.in_memory import InMemoryAppointmentRepository
 
 TENANT = "Sede_Elite_01"
+CONVERSACION = "whatsapp:57300111111"
 LUNES = OpeningHoursDay(weekday=0, open_time="09:00", close_time="12:00")
 LUNES_2026_03_02 = "2026-03-02"
-JUEVES_2026_03_05 = "2026-03-05"
+# Mensaje con los cuatro datos literales: la política puede ir a `AUTO`.
+_MSG_EXPLICITA = "cita 2026-03-02 10:00 Ana Pérez 3001112233"
 
 JSON_CREAR = (
-    '{"action": "create_appointment", "date": "2026-03-05", "time": "10:00", '
+    '{"action": "propose_appointment", "date": "2026-03-02", "time": "10:00", '
     '"customer_name": "Ana Pérez", "contact": "3001112233", '
     '"appointment_id": null, "party_size": null, "reply": null}'
 )
@@ -55,7 +59,7 @@ JSON_SALUDO = (
     '"reply": "Hola, soy el asistente de citas."}'
 )
 JSON_CON_TENANT_AJENO = (
-    '{"action": "create_appointment", "date": "2026-03-05", "time": "10:00", '
+    '{"action": "propose_appointment", "date": "2026-03-02", "time": "10:00", '
     '"customer_name": "Ana Pérez", "contact": "3001112233", '
     '"appointment_id": null, "party_size": null, "reply": null, '
     '"tenant_id": "Comercio_Ajeno_99"}'
@@ -144,7 +148,12 @@ def _turno(
     Returns:
         Estado listo para alimentar el nodo que se esté probando.
     """
-    estado = AgentState(tenant_id=TENANT, correlation_id=correlation_id, user_message=mensaje)
+    estado = AgentState(
+        tenant_id=TENANT,
+        correlation_id=correlation_id,
+        conversation_id=CONVERSACION,
+        user_message=mensaje,
+    )
     if proposal is not None:
         estado["proposal"] = proposal
     if missing_fields is not None:
@@ -178,7 +187,12 @@ def _deps(
     reloj = _RelojFijo(datetime(2026, 3, 2, 8, 0))
     deps = Deps(
         llm=llm,
-        tools=AppointmentTools(repo=repositorio, clock=reloj, opening_hours=(LUNES,)),
+        tools=AppointmentTools(
+            repo=repositorio,
+            clock=reloj,
+            opening_hours=(LUNES,),
+            drafts=InMemoryDraftStore(clock=reloj),
+        ),
         clock=reloj,
     )
     return deps, repositorio
@@ -191,28 +205,46 @@ def _propuesta_crear() -> AppointmentProposal:
         Propuesta validada con todos los datos mínimos.
     """
     return AppointmentProposal(
-        action="create_appointment",
-        date=JUEVES_2026_03_05,
+        action="propose_appointment",
+        date=LUNES_2026_03_02,
         time="10:00",
         customer_name="Ana Pérez",
         contact="3001112233",
     )
 
 
-def _resultado_creada() -> ToolResult:
-    """Salida de `create_appointment` como la dejaría la tool real.
+def _resultado_esperando() -> ToolResult:
+    """Salida de `propose_appointment` con la política `CONFIRM` (sin ejecutar).
 
     Returns:
-        `ToolResult` con la vista de la cita creada.
+        `ToolResult` con el draft a la espera de confirmación.
     """
     return ToolResult(
-        tool="create_appointment",
+        tool="propose_appointment",
+        draft_id="drf-espera",
+        draft_status=DraftStatus.AWAITING_CONFIRMATION,
+        policy=ConfirmationPolicy.CONFIRM,
+        policy_reasons=("campo_inferido:contact",),
+    )
+
+
+def _resultado_commiteado() -> ToolResult:
+    """Salida de `propose_appointment` ya commiteada (política `AUTO`).
+
+    Returns:
+        `ToolResult` con la cita creada y el draft `COMMITTED`.
+    """
+    return ToolResult(
+        tool="propose_appointment",
         appointment=AppointmentView(
             id="appt-1",
-            starts_at=datetime(2026, 3, 5, 10, 0),
+            starts_at=datetime(2026, 3, 2, 10, 0),
             customer_name="Ana Pérez",
-            status="pending",
+            status="confirmed",
         ),
+        draft_id="drf-hecho",
+        draft_status=DraftStatus.COMMITTED,
+        policy=ConfirmationPolicy.AUTO,
     )
 
 
@@ -237,6 +269,7 @@ def _grafo(
         repo=repositorio,
         clock=_RelojFijo(datetime(2026, 3, 2, 8, 0)),
         opening_hours=(LUNES,),
+        drafts=InMemoryDraftStore(clock=_RelojFijo(datetime(2026, 3, 2, 8, 0))),
     )
     return grafo, llm, repositorio
 
@@ -263,9 +296,9 @@ def _citas(repo: InMemoryAppointmentRepository) -> list[Appointment]:
 def test_understand_convierte_el_turno_en_propuesta() -> None:
     """La salida JSON válida se parsea y valida contra el esquema."""
     llm = _FakeLLM([JSON_CREAR])
-    estado = understand(_turno("quiero una cita el 5 de marzo"), deps=_deps(llm)[0])
-    assert estado["proposal"].action == "create_appointment"
-    assert estado["proposal"].date == JUEVES_2026_03_05
+    estado = understand(_turno("quiero una cita el lunes"), deps=_deps(llm)[0])
+    assert estado["proposal"].action == "propose_appointment"
+    assert estado["proposal"].date == LUNES_2026_03_02
     assert len(llm.calls) == 1
 
 
@@ -315,8 +348,8 @@ def test_understand_rechaza_json_con_claves_de_otro_mundo() -> None:
 def test_validate_lista_lo_que_falta_para_crear() -> None:
     """Sin contacto la propuesta queda incompleta (regla 4)."""
     propuesta = AppointmentProposal(
-        action="create_appointment",
-        date=JUEVES_2026_03_05,
+        action="propose_appointment",
+        date=LUNES_2026_03_02,
         time="10:00",
         customer_name="Ana Pérez",
     )
@@ -344,7 +377,7 @@ def test_select_action_solo_acepta_tools_de_la_allowlist() -> None:
     """La allowlist coincide con el Literal de tools y es lo único que se traduce."""
     assert set(get_args(ToolName)) == ALLOWED_TOOLS
     con_tool = select_action(_turno("cita", proposal=_propuesta_crear(), missing_fields=[]))
-    assert con_tool["tool_name"] == "create_appointment"
+    assert con_tool["tool_name"] == "propose_appointment"
     sin_tool = select_action(
         _turno("hola", proposal=AppointmentProposal(action="reply", reply="Hola"))
     )
@@ -364,17 +397,38 @@ def test_ruta_tras_accion_decide_entre_tool_y_respuesta() -> None:
 # -------------------------------------------------------------------------------- call_tool
 
 
-def test_call_tool_crea_la_cita_y_la_persiste() -> None:
-    """La tool elegida recibe el `proposal` y el contexto, y deja el resultado."""
+def test_call_tool_propone_y_commitea_con_mensaje_explicito() -> None:
+    """Con datos literales en el mensaje la propuesta se ejecuta y se persiste."""
     llm = _FakeLLM([])
     deps, repo = _deps(llm)
     estado = call_tool(
-        _turno("cita", proposal=_propuesta_crear(), tool_name="create_appointment"),
+        _turno(_MSG_EXPLICITA, proposal=_propuesta_crear(), tool_name="propose_appointment"),
         deps=deps,
     )
-    assert estado["tool_result"].tool == "create_appointment"
+    result = estado["tool_result"]
+    assert result.tool == "propose_appointment"
+    assert result.draft_status is DraftStatus.COMMITTED
     assert "tool_error" not in estado
     assert len(_citas(repo)) == 1
+    assert _citas(repo)[0].status == "confirmed"
+
+
+def test_call_tool_con_campos_inferidos_no_escribe_nada() -> None:
+    """Sin datos literales la política es `CONFIRM`: queda el draft, no la cita."""
+    llm = _FakeLLM([])
+    deps, repo = _deps(llm)
+    estado = call_tool(
+        _turno(
+            "quiero cita el lunes a las 10 con Ana",
+            proposal=_propuesta_crear(),
+            tool_name="propose_appointment",
+        ),
+        deps=deps,
+    )
+    result = estado["tool_result"]
+    assert result.draft_status is DraftStatus.AWAITING_CONFIRMATION
+    assert result.appointment is None
+    assert _citas(repo) == []
 
 
 def test_call_tool_convierte_el_error_de_dominio_en_tool_error() -> None:
@@ -401,16 +455,24 @@ def test_call_tool_sin_tool_name_reporta_no_permitida() -> None:
 # ----------------------------------------------------------------------- validate_result
 
 
-def test_validate_result_marca_confirmacion_solo_si_toca() -> None:
-    """Crear o cancelar piden confirmación; una consulta no."""
-    creando = validate_result(
+def test_validate_result_marca_confirmacion_solo_si_el_draft_espera() -> None:
+    """Solo un draft `AWAITING_CONFIRMATION` pide confirmación al cliente."""
+    esperando = validate_result(
         _turno(
             "cita",
-            tool_name="create_appointment",
-            tool_result=_resultado_creada(),
+            tool_name="propose_appointment",
+            tool_result=_resultado_esperando(),
         )
     )
-    assert creando["needs_confirmation"] is True
+    assert esperando["needs_confirmation"] is True
+    hecho = validate_result(
+        _turno(
+            "cita",
+            tool_name="propose_appointment",
+            tool_result=_resultado_commiteado(),
+        )
+    )
+    assert hecho["needs_confirmation"] is False
     consultando = validate_result(
         _turno(
             "horario",
@@ -431,7 +493,7 @@ def test_validate_result_rechaza_un_resultado_incoherente() -> None:
         validate_result(
             _turno(
                 "cita",
-                tool_name="create_appointment",
+                tool_name="propose_appointment",
                 tool_result=ToolResult(tool="get_opening_hours"),
             )
         )
@@ -456,24 +518,44 @@ def test_respond_pide_los_datos_faltantes_en_el_contexto() -> None:
     assert isinstance(system, str) and "Faltan datos" in system and "contact" in system
 
 
-def test_respond_entrega_el_resultado_como_datos() -> None:
-    """El `system` incluye el JSON del resultado y la instrucción de confirmación."""
-    llm = _FakeLLM(["Tu cita está registrada, ¿la confirmas?"])
+def test_respond_pide_confirmacion_cuando_el_draft_espera() -> None:
+    """El `system` incluye los datos del draft y la instrucción de no darla por hecha."""
+    llm = _FakeLLM(["¿Te la reservo? Confírmame y la agendo."])
     deps, _ = _deps(llm)
     estado = respond(
         _turno(
             "cita",
             proposal=_propuesta_crear(),
-            tool_name="create_appointment",
-            tool_result=_resultado_creada(),
+            tool_name="propose_appointment",
+            tool_result=_resultado_esperando(),
             needs_confirmation=True,
         ),
         deps=deps,
     )
     system = llm.calls[0]["system"]
     assert isinstance(system, str)
-    assert "2026-03-05T10:00:00" in system and "confirmación" in system
-    assert estado["reply"] == "Tu cita está registrada, ¿la confirmas?"
+    assert "awaiting_confirmation" in system and "confirme" in system
+    assert estado["reply"].startswith("¿Te la reservo?")
+
+
+def test_respond_entrega_el_resultado_ya_ejecutado() -> None:
+    """Con el draft commiteado la respuesta entrega la cita sin pedir confirmación."""
+    llm = _FakeLLM(["Tu cita del lunes 10:00 está lista."])
+    deps, _ = _deps(llm)
+    estado = respond(
+        _turno(
+            "cita",
+            proposal=_propuesta_crear(),
+            tool_name="propose_appointment",
+            tool_result=_resultado_commiteado(),
+            needs_confirmation=False,
+        ),
+        deps=deps,
+    )
+    system = llm.calls[0]["system"]
+    assert isinstance(system, str)
+    assert "2026-03-02T10:00:00" in system and "ya se ejecutó" in system
+    assert estado["reply"] == "Tu cita del lunes 10:00 está lista."
 
 
 # ------------------------------------------------------------------------------- end-to-end
@@ -493,16 +575,28 @@ def test_e2e_saludo_responde_sin_tocar_el_repositorio() -> None:
     assert len(llm.calls[0]["messages"]) == 3
 
 
-def test_e2e_crea_cita_y_pide_confirmacion() -> None:
-    """Con datos completos se crea la cita, se persiste y se pide confirmación."""
-    grafo, llm, repo = _grafo([JSON_CREAR, "Tu cita del 5 de marzo a las 10:00 está lista."])
-    estado = grafo.invoke(_turno("Quiero cita el 5 de marzo a las 10:00 con Ana"))
+def test_e2e_propone_cita_y_pide_confirmacion() -> None:
+    """Campos inferidos: se propone el draft y la respuesta pide confirmación."""
+    grafo, llm, repo = _grafo([JSON_CREAR, "¿Te la confirmo para el lunes a las 10?"])
+    estado = grafo.invoke(_turno("Quiero cita el lunes a las 10 con Ana"))
     assert estado["needs_confirmation"] is True
-    assert estado["reply"] == "Tu cita del 5 de marzo a las 10:00 está lista."
+    assert estado["reply"] == "¿Te la confirmo para el lunes a las 10?"
+    assert _citas(repo) == []
+    system = llm.calls[1]["system"]
+    assert isinstance(system, str) and "AÚN NO ejecutada" in system
+
+
+def test_e2e_con_datos_explicitos_ejecuta_sin_ritual() -> None:
+    """Todo literal en el mensaje: `AUTO`, cita persistida y respuesta sin confirmación."""
+    grafo, llm, repo = _grafo([JSON_CREAR, "Tu cita del lunes a las 10:00 está lista."])
+    estado = grafo.invoke(_turno(_MSG_EXPLICITA))
+    assert estado["needs_confirmation"] is False
+    assert estado["reply"] == "Tu cita del lunes a las 10:00 está lista."
     citas = _citas(repo)
     assert len(citas) == 1 and citas[0].tenant_id == TENANT
+    assert citas[0].status == "confirmed"
     system = llm.calls[1]["system"]
-    assert isinstance(system, str) and "2026-03-05T10:00:00" in system
+    assert isinstance(system, str) and "2026-03-02T10:00:00" in system
 
 
 def test_e2e_consulta_disponibilidad_con_huecos_reales() -> None:
@@ -519,7 +613,7 @@ def test_e2e_json_con_tenant_ajeno_no_ejecuta_nada() -> None:
     grafo, llm, repo = _grafo(
         [JSON_CON_TENANT_AJENO, JSON_CON_TENANT_AJENO, "No entendí, ¿repites la cita?"]
     )
-    estado = grafo.invoke(_turno("cita el 5 de marzo"))
+    estado = grafo.invoke(_turno("cita el lunes"))
     assert estado["proposal"].action == "reply"
     assert "tool_result" not in estado
     assert _citas(repo) == []

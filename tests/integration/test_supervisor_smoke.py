@@ -22,6 +22,7 @@ from _aws import (  # pyrefly: ignore[missing-import]
 from botocore.exceptions import NoRegionError
 
 from adapters.bedrock import BedrockLLM
+from adapters.in_memory import InMemoryDraftStore
 from shared.config import load_settings
 from shared.contracts import AgentName, InboundMessage
 from shared.errors import ToolError
@@ -85,6 +86,7 @@ def _grafo() -> Any:
         repo=InMemoryAppointmentRepository(),
         clock=reloj,
         opening_hours=_HORARIO,
+        drafts=InMemoryDraftStore(clock=reloj),
     )
     return build_supervisor_graph(
         llm=llm,

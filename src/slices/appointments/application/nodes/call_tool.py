@@ -37,10 +37,12 @@ def _ejecutar(tool_name: ToolName, state: AgentState, deps: Deps) -> ToolResult:
                 date=proposal.date or "",
                 party_size=proposal.party_size,
             )
-        case "create_appointment":
-            return deps.tools.create_appointment(
+        case "propose_appointment":
+            return deps.tools.propose_appointment(
                 tenant_id=tenant_id,
                 correlation_id=state["correlation_id"],
+                conversation_id=state["conversation_id"],
+                message=state["user_message"],
                 date=proposal.date or "",
                 time=proposal.time or "",
                 customer_name=proposal.customer_name or "",
@@ -49,6 +51,9 @@ def _ejecutar(tool_name: ToolName, state: AgentState, deps: Deps) -> ToolResult:
         case "cancel_appointment":
             return deps.tools.cancel_appointment(
                 tenant_id=tenant_id,
+                correlation_id=state["correlation_id"],
+                conversation_id=state["conversation_id"],
+                message=state["user_message"],
                 appointment_id=proposal.appointment_id or "",
             )
         case "get_opening_hours":
@@ -81,5 +86,14 @@ def call_tool(state: AgentState, *, deps: Deps) -> AgentState:
     except AppError as exc:
         _logger.error("tool de citas falló", extra={"tool": tool_name, "code": exc.code})
         return {**state, "tool_error": {"code": exc.code, "message": str(exc)}}
-    _logger.info("tool de citas ejecutada", extra={"tool": tool_name})
+    _logger.info(
+        "tool de citas ejecutada",
+        extra={
+            "tool": tool_name,
+            "draft_id": result.draft_id,
+            "draft_status": result.draft_status,
+            "policy": result.policy,
+            "policy_reasons": list(result.policy_reasons),
+        },
+    )
     return {**state, "tool_result": result}

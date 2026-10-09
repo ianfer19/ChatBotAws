@@ -1,17 +1,16 @@
 """Nodo `validate_result`: coherencia de la salida y si hace falta confirmación.
 
 Comprueba que lo que devolvió la tool corresponde a la tool pedida (defensa contra
-estados corruptos o nodos mal cableados) y marca `needs_confirmation` para las acciones
-irreversibles del Paso 3.
+estados corruptos o nodos mal cableados) y marca `needs_confirmation` cuando el draft
+sigue `AWAITING_CONFIRMATION`: la confirmación sale de la política de riesgo (ADR
+0011), no de una lista fija de acciones.
 """
 
 from typing import Literal
 
+from shared.contracts.pending import DraftStatus
 from shared.errors import ToolError
 from slices.appointments.application.state import AgentState
-
-CONFIRMACION_REQUERIDA: frozenset[str] = frozenset({"create_appointment", "cancel_appointment"})
-"""Acciones que exigen confirmación explícita del cliente antes de darse por hechas."""
 
 
 def validate_result(state: AgentState) -> AgentState:
@@ -21,8 +20,9 @@ def validate_result(state: AgentState) -> AgentState:
         state: Estado tras `call_tool`.
 
     Returns:
-        Estado con `needs_confirmation`: `False` si hubo error, `True` si la tool fue
-        crear o cancelar, `False` para consultas.
+        Estado con `needs_confirmation`: `False` si hubo error, `True` si el draft de
+        la propuesta espera confirmación del cliente y `False` en cualquier otro caso
+        (consulta o escritura ya commiteada).
 
     Raises:
         ToolError: Si no hay resultado o no corresponde a la tool pedida (estado
@@ -37,7 +37,10 @@ def validate_result(state: AgentState) -> AgentState:
             "resultado de tool incoherente con la pedida",
             details={"esperada": tool_name or "ninguna"},
         )
-    return {**state, "needs_confirmation": result.tool in CONFIRMACION_REQUERIDA}
+    return {
+        **state,
+        "needs_confirmation": result.draft_status is DraftStatus.AWAITING_CONFIRMATION,
+    }
 
 
 def ruta_confirmacion(state: AgentState) -> Literal["confirmar", "entregar"]:
