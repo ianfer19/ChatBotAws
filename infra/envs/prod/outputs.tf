@@ -17,3 +17,8 @@ output "aurora_endpoint" {
   description = "Endpoint de escritura de Aurora (conocimiento RAG, Paso 7)."
   value       = module.aurora.cluster_endpoint
 }
+
+output "api_endpoint" {
+  description = "Endpoint de la API HTTP (URL base del webhook de Meta, Paso 9)."
+  value       = module.apigw.api_endpoint
+}

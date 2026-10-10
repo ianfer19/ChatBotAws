@@ -76,4 +76,77 @@ module "iam" {
   source      = "../../modules/iam"
   environment = "prod"
   functions   = ["conversation_gateway", "supervisor"]
+
+  # Least-privilege por función: solo el supervisor habla con Bedrock.
+  # TODO(verify): ARNs exactos (foundation-model vs inference-profile) al
+  # cablear el adapter real (Pasos 7–10).
+  inline_policies = {
+    supervisor = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Sid    = "BedrockConverse"
+          Effect = "Allow"
+          Action = [
+            "bedrock:InvokeModel",
+            "bedrock:InvokeModelWithResponseStream",
+          ]
+          Resource = [
+            "arn:aws:bedrock:${var.aws_region}::foundation-model/*",
+            "arn:aws:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:inference-profile/*",
+          ]
+        },
+      ]
+    })
+  }
+}
+
+data "aws_caller_identity" "current" {}
+
+# Lambda + API HTTP: los dos puntos de entrada del entorno (ADR 0004: el grafo
+# corre en Lambda en dev; el webhook llega por API Gateway).
+locals {
+  # TODO(decision): modelo por entorno (hoy el mismo que el del smoke; costos → Paso 14).
+  model_id = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+
+  lambda_functions = {
+    conversation_gateway = {
+      handler  = "handler.main"
+      zip_path = "../../../artifacts/conversation_gateway.zip"
+      timeout  = 10
+      env = {
+        CHATBOT_ENVIRONMENT      = "prod"
+        CHATBOT_BEDROCK_MODEL_ID = local.model_id
+      }
+    }
+    supervisor = {
+      handler     = "handler.main"
+      zip_path    = "../../../artifacts/supervisor.zip"
+      timeout     = 60
+      memory_size = 512
+      env = {
+        CHATBOT_ENVIRONMENT      = "prod"
+        CHATBOT_BEDROCK_MODEL_ID = local.model_id
+      }
+    }
+  }
+}
+
+module "lambda" {
+  source      = "../../modules/lambda"
+  environment = "prod"
+  functions   = local.lambda_functions
+  role_arns   = module.iam.role_arns
+}
+
+module "apigw" {
+  source      = "../../modules/apigw"
+  name        = "chatbot-aws-prod"
+  environment = "prod"
+  functions   = module.lambda.invoke_arns
+
+  routes = {
+    webhook_get  = { method = "GET", path = "/webhook", function = "conversation_gateway" }
+    webhook_post = { method = "POST", path = "/webhook", function = "conversation_gateway" }
+  }
 }

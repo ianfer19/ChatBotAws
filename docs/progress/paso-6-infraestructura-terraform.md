@@ -5,7 +5,7 @@
 > sin releer el código. Criterio de cierre del paso:
 > [ROADMAP §1 fila 6](../ROADMAP.md). Decisiones de alcance: ADR 0012 (Fase 5).
 >
-> **Estado global: FASE 3 de 5 completada; siguiente: Fase 4 (apigw + lambda).**
+> **Estado global: FASE 4 de 5 completada; siguiente: Fase 5 (ADR 0012 + docs + cierre).**
 
 ## Decisiones cerradas con el usuario (2026-10-09)
 
@@ -71,14 +71,23 @@
       `functions = ["conversation_gateway", "supervisor"]`), output
       `aurora_endpoint` y `vpc_cidr` en `network` + fmt/validate en verde.
 
-## Fase 4 — apigw + lambda  (pendiente)
+## Fase 4 — apigw + lambda  (hecha)
 
-- [ ] `apigw`: HTTP API (v2) con rutas de webhook Meta (`GET/POST /webhook/...`)
-      e internas, access logs, integraciones Lambda por ARN variable.
-- [ ] `lambda`: factory por mapa de funciones (Python 3.12, handler, env vars,
-      timeout/memoria) instanciada con artefactos `artifacts/*.zip` gitignored
-      (build posterior) → `TODO(verify)`.
-- [ ] Cableado en los 3 envs + fmt/validate en verde.
+- [x] `apigw`: HTTP API (v2) con `GET/POST /webhook` (verificación `hub.challenge`
+      y mensajes; la firma la valida la Lambda en el Paso 9), stage
+      `$default` con auto-deploy, access logs JSON con `$context` a CloudWatch
+      con retención, integraciones `AWS_PROXY` por ruta y `aws_lambda_permission`
+      concreto por ruta (no `*`). Rate limiting y rutas internas → Paso 9.
+- [x] `lambda`: factory por mapa (Python 3.12, handler, timeout/memoria, env
+      `CHATBOT_*`), grupo de logs por función con retención (creado antes que
+      la función), `source_code_hash` con `try(filebase64sha256(...))` para
+      validar sin zips; `artifacts/` gitignorado salvo su README y
+      empaquetado real → `TODO(verify)` (Paso 9).
+- [x] Cableado en los 3 envs: funciones `conversation_gateway` (10 s) y
+      `supervisor` (60 s, 512 MB) con `CHATBOT_ENVIRONMENT` y
+      `CHATBOT_BEDROCK_MODEL_ID`; política inline solo-supervisor para
+      `bedrock:InvokeModel*` (ARNs → `TODO(verify)`) y output `api_endpoint`
+      + fmt/validate en verde.
 
 ## Fase 5 — ADR 0012 + docs + cierre  (pendiente)
 

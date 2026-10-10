@@ -44,3 +44,6 @@ Thumbs.db
 tmp/
 scratch/
 *.log
+
+# Zips de Lambda (construidos; artifacts/README.md sí se commitea)
+artifacts/*.zip
