@@ -19,8 +19,8 @@ Colombia). El sistema:
 - Protege el sistema con Guardrails, detección de abuso y handoff humano.
 
 **Estado: Fases 1 y 2 completadas** (esqueleto, documentación, CI y kernel `shared`) y
-**Pasos 1-5 de la ruta** (ports, Bedrock, grafo de citas, supervisor + contexto, y
-tools con lógica de negocio propose/commit). La ruta activa es [docs/ROADMAP.md](docs/ROADMAP.md)
+**Pasos 1-6 de la ruta** (ports, Bedrock, grafo de citas, supervisor + contexto, tools
+con lógica de negocio propose/commit, e infraestructura Terraform base). La ruta activa es [docs/ROADMAP.md](docs/ROADMAP.md)
 (14 pasos); visión general: [docs/architecture/OVERVIEW.md](docs/architecture/OVERVIEW.md) y §10.
 
 ---
@@ -61,7 +61,8 @@ tools con lógica de negocio propose/commit). La ruta activa es [docs/ROADMAP.md
 │
 ├── infra/
 │   ├── modules/               # Módulos Terraform reutilizables (state, network, aurora,
-│   │                          #   dynamodb, s3, lambda, apigw, bedrock, agentcore, iam, observability)
+│   │                          #   dynamodb, s3, kms, lambda, apigw, bedrock, agentcore, iam, observability)
+│   ├── bootstrap/             # Estado de Terraform (backend local; apply único a mano)
 │   └── envs/{dev,staging,prod}/
 │
 ├── prompts/                   # Espejo local de Bedrock Prompt Management
@@ -256,6 +257,7 @@ Mismo patrón para cualquier regla crítica: ninguna depende solo del prompt.
 | D6 | Retención de conversaciones/media: **pendiente**, fuera de la ruta (ROADMAP §4) | [0007](docs/adr/0007-retencion-de-conversaciones-y-media.md) |
 | D7 | Supervisor compone a los especialistas por invocación (nodo anidado tras un port) | [0010](docs/adr/0010-composicion-de-grafos-por-invocacion.md) |
 | D8 | Confirmación por política de riesgo con drafts propose/commit (sin ritual fijo; sin depender del checkpointer) | [0011](docs/adr/0011-confirmacion-por-politica-con-drafts.md) |
+| D9 | Infraestructura: estado remoto con bootstrap, un stack por entorno y Lambdas sin VPC por defecto | [0012](docs/adr/0012-infraestructura-terraform-estado-y-red.md) |
 
 Requisitos de corrección que deben mantenerse siempre (con sus tests):
 **saludo** → intención `greeting`/`smalltalk` con ruta propia y saludo neutral, sin enrutar
@@ -293,7 +295,7 @@ de las fases históricas 1–9 a los pasos nuevos).
 | 3 | LangGraph: grafo de citas + `AgentState` en `appointments/application` | **hecho** |
 | 4 | Supervisor (routing, saludo) + `customer_context` (contexto obligatorio por turno) | **hecho** |
 | 5 | Tools + lógica de negocio (citas, pedidos) con dobles en memoria | **hecho** |
-| 6 | Infraestructura Terraform base (state, red, DynamoDB, S3, Aurora, IAM, apigw, lambda) | **en curso** (ver [docs/progress/](docs/progress/)) |
+| 6 | Infraestructura Terraform base (state, red, DynamoDB, S3, Aurora, IAM, apigw, lambda) | **hecho** |
 | 7 | RAG + Aurora/pgvector (`knowledge_rag`, `VectorStorePort` → `adapters/aurora`) | pendiente |
 | 8 | Memory / checkpoints (checkpointer de LangGraph, ADR 0007) | pendiente |
 | 9 | Conversation gateway (webhook Meta, 3 canales, firma y tenant) | pendiente |

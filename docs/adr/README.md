@@ -85,3 +85,4 @@ Reglas complementarias:
 | 0009 | [ChannelPort único para los canales Meta](0009-channelport-unico-canales-meta.md) | Aceptado | 2026-10-07 |
 | 0010 | [Composición de grafos por invocación](0010-composicion-de-grafos-por-invocacion.md) | Aceptado | 2026-10-08 |
 | 0011 | [Confirmación por política con drafts](0011-confirmacion-por-politica-con-drafts.md) | Aceptado | 2026-10-09 |
+| 0012 | [Infraestructura Terraform: estado remoto, tres entornos y red mínima](0012-infraestructura-terraform-estado-y-red.md) | Aceptado | 2026-10-09 |

@@ -40,7 +40,7 @@ Volumen inicial: 3 comercios heredados de la plataforma legacy; el chatbot todav
 |---|---|---|---|
 | Kernel compartido | `errors`, `logging` (JSON), `config`, `context`, `contracts`, `ports` (`LLMPort`, `VectorStorePort`, `MemoryStorePort`, `ClockPort`, `EventBusPort`) | `src/shared/` | 1–2 |
 | Adaptadores de plataforma | Bedrock, AgentCore, DynamoDB, Aurora, S3, Comprehend, backend legacy | `src/adapters/` | 2+ |
-| Infraestructura | Módulos Terraform reutilizables (`state`, `network`, `aurora`, `dynamodb`, `s3`, `lambda`, `apigw`, `bedrock`, `agentcore`, `iam`, `observability`) | `infra/modules/` | 6 |
+| Infraestructura | Módulos Terraform reutilizables (`state`, `network`, `aurora`, `dynamodb`, `s3`, `kms`, `lambda`, `apigw`, `bedrock`, `agentcore`, `iam`, `observability`) | `infra/modules/` | 6 |
 | Entornos | `dev`, `staging`, `prod` con estado remoto S3 + lock | `infra/envs/` | 6 |
 | Prompts | Espejo local de las plantillas versionadas en Bedrock Prompt Management | `prompts/` | 3+ |
 | Tests | `unit`, `integration`, `contract`, `agent_evals` | `tests/` | 1+ |

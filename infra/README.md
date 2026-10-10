@@ -26,6 +26,7 @@ Estado remoto en S3 con lock en DynamoDB (módulo `state/`).
 | `aurora/` | Aurora PostgreSQL Serverless v2 + pgvector, KMS | desde ~USD 20–40/mes con min ACU bajo + storage (`TODO(verify pricing)`) | 6 |
 | `dynamodb/` | Tablas operacionales con TTL (on-demand) | < 5 USD/mes a volumen inicial (`TODO(verify pricing)`) | 6 |
 | `s3/` | Buckets de archivo/media con lifecycle y KMS | ~USD 0.023/GB-mes (`TODO(verify pricing)`) | 6 |
+| `kms/` | Llave simétrica + alias por entorno (rotación activada) | por uso de API y almacenamiento (`TODO(verify pricing)`) | 6 |
 | `lambda/` | Paquetes e IAM por función (Python 3.12) | ~USD 0.20/millón de invocaciones + compute (`TODO(verify pricing)`) | 6 |
 | `apigw/` | API Gateway HTTP (webhook Meta, internos) | ~USD 1/millón de llamadas (`TODO(verify pricing)`) | 6 |
 | `bedrock/` | Guardrails y acceso a modelos | por token; depende del modelo (`TODO(verify pricing)`) | 2 y 13 |

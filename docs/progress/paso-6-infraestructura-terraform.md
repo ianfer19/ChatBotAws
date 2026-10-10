@@ -5,7 +5,7 @@
 > sin releer el código. Criterio de cierre del paso:
 > [ROADMAP §1 fila 6](../ROADMAP.md). Decisiones de alcance: ADR 0012 (Fase 5).
 >
-> **Estado global: FASE 4 de 5 completada; siguiente: Fase 5 (ADR 0012 + docs + cierre).**
+> **Estado global: PASO 6 COMPLETO (5/5 fases); siguiente: Paso 7 (RAG + Aurora/pgvector).**
 
 ## Decisiones cerradas con el usuario (2026-10-09)
 
@@ -89,20 +89,21 @@
       `bedrock:InvokeModel*` (ARNs → `TODO(verify)`) y output `api_endpoint`
       + fmt/validate en verde.
 
-## Fase 5 — ADR 0012 + docs + cierre  (pendiente)
+## Fase 5 — ADR 0012 + docs + cierre  (hecha)
 
-- [ ] ADR 0012 (estructura de envs, bootstrap, región, sin-VPC por defecto,
-      bucket única con prefijos).
-- [ ] READMEs de los módulos nuevos y de `envs/{staging,prod}`; CLAUDE.md paso
-      activo → 7; AGENTS §1/§10 fila 6 → **hecho**.
-- [ ] Batería completa en verde (ruff, format, mypy, pytest, lint-imports,
+- [x] ADR 0012 (estructura de envs, bootstrap, región, sin-VPC por defecto,
+      bucket única con prefijos) + índice ADR + AGENTS §8 (D9).
+- [x] READMEs de los 9 módulos y de `envs/{dev,staging,prod}`; CLAUDE.md paso
+      activo → 7; AGENTS §1/§10 fila 6 → **hecho** (y árbol §2 con `kms` y
+      `bootstrap/`).
+- [x] Batería completa en verde (ruff, format, mypy, pytest, lint-imports,
       terraform fmt, final_review, pyrefly).
 
 ## Criterios de hecho del ROADMAP (§1 fila 6)
 
-- [ ] `terraform fmt` + `validate` en verde para dev/staging/prod (CI
+- [x] `terraform fmt` + `validate` en verde para dev/staging/prod (CI
       `terraform.yml` ejecuta ambos por directorio).
 - [x] Confirmado: los stores de los Pasos 3–5 siguen siendo dobles en memoria
       (este paso crea la infraestructura; los adapters reales llegan en los
       Pasos 6–7 de la ruta, ver ROADMAP §2.4).
-- [ ] Batería completa en verde al cierre de la Fase 5.
+- [x] Batería completa en verde al cierre de la Fase 5.
