@@ -11,11 +11,11 @@ class Settings(BaseSettings):
 
     Campos: entorno de despliegue, nivel de log, modelo de Bedrock y timeout de su
     cliente (Paso 2), desde el Paso 7 los de RAG: modelo de embeddings y
-    conexión a Aurora, y desde el Paso 8 el tamaño de la ventana de historial.
-    Los de RAG son opcionales a nivel de `Settings` (solo el
-    proceso que compone el RAG los exige) y el constructor del adapter falla
-    rápido si faltan. Cada paso añade los suyos en vez de estandarizar
-    configuración que aún no existe.
+    conexión a Aurora, desde el Paso 8 el tamaño de la ventana de historial y desde
+    el Paso 9 los secretos del webhook Meta. Los de RAG y los del webhook son
+    opcionales a nivel de `Settings` (solo el proceso que los compone los exige) y su
+    constructor falla rápido si faltan. Cada paso añade los suyos en vez de
+    estandarizar configuración que aún no existe.
 
     `bedrock_model_id` es **obligatorio**: sin modelo no hay conversación, así que el
     proceso falla al arrancar en lugar de fallar en el primer mensaje (fail fast).
@@ -55,6 +55,14 @@ class Settings(BaseSettings):
     # nivel de `Settings` (solo el proceso que compone el checkpointer la exige) y
     # `DynamoDBMemoryStore` falla rápido si falta.
     checkpoints_table: str = Field(default="")
+    # Paso 9 (webhook Meta): token de verificación del webhook y secreto de la app
+    # Meta para `X-Hub-Signature-256`. Opcionales a nivel de `Settings` (solo la
+    # Lambda del gateway los exige; `WebhookReceiver` falla rápido si faltan), al
+    # estilo del legacy (`WHATSAPP_VERIFY_TOKEN`/`WHATSAPP_APP_SECRET`).
+    # TODO(verify): inyectarlos en prod sin exponerlos en el estado de Terraform
+    # (SSM SecureString/Secrets Manager como hace el legacy con los tokens de canal).
+    webhook_verify_token: str = Field(default="")
+    meta_app_secret: str = Field(default="")
 
     @model_validator(mode="after")
     def _bedrock_model_id_es_obligatorio(self) -> Self:

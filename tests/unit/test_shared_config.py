@@ -84,3 +84,19 @@ def test_tabla_de_checkpoints_por_defecto_y_personalizada(
 
     monkeypatch.setenv("CHATBOT_CHECKPOINTS_TABLE", "chatbot_checkpoints_dev")
     assert load_settings().checkpoints_table == "chatbot_checkpoints_dev"
+
+
+def test_secretos_del_webhook_opcionales_y_desde_entorno(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Los secretos del webhook (Paso 9) no obligan al resto de procesos a definirlos."""
+    monkeypatch.delenv("CHATBOT_WEBHOOK_VERIFY_TOKEN", raising=False)
+    monkeypatch.delenv("CHATBOT_META_APP_SECRET", raising=False)
+    assert load_settings().webhook_verify_token == ""
+    assert load_settings().meta_app_secret == ""
+
+    monkeypatch.setenv("CHATBOT_WEBHOOK_VERIFY_TOKEN", "token-meta")
+    monkeypatch.setenv("CHATBOT_META_APP_SECRET", "secreto-app")
+    settings = load_settings()
+    assert settings.webhook_verify_token == "token-meta"
+    assert settings.meta_app_secret == "secreto-app"

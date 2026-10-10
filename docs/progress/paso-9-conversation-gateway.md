@@ -5,8 +5,8 @@
 > sin releer el código. Criterio de cierre del paso:
 > [ROADMAP §1 fila 9](../ROADMAP.md). Decisiones de alcance: este mismo archivo.
 >
-> **Estado global: PASO 9 EN CURSO — Fase 1 COMPLETA (1 de 7). Siguiente: Fase 2
-> (webhook GET `hub.challenge` + POST con firma).**
+> **Estado global: PASO 9 EN CURSO — Fase 2 COMPLETA (2 de 7). Siguiente: Fase 3
+> (parsers de los 3 canales → `ChannelMessage`).**
 
 ## Decisiones cerradas con el usuario (2026-10-10)
 
@@ -46,7 +46,7 @@
 | Fase | Alcance | Estado |
 |---|---|---|
 | 1 | Domain + `ChannelPort` + errores + dobles en memoria | `[x]` |
-| 2 | Webhook: `GET hub.challenge` + `POST` con firma HMAC | `[ ]` |
+| 2 | Webhook: `GET hub.challenge` + `POST` con firma HMAC | `[x]` |
 | 3 | Normalización: parsers de los 3 canales → `ChannelMessage` | `[ ]` |
 | 4 | Tenant + dedup + encolado + módulo SQS/IAM (Terraform) | `[ ]` |
 | 5 | Credenciales (SSM) + endpoint admin + `verify_credentials` | `[ ]` |
@@ -77,6 +77,30 @@
   conformance de los 3 dobles) + `ChannelPort` en `test_shared_ports.py`.
 - [x] Batería verde + commit `feat(paso-9): dominio y channelport del gateway de
   conversacion`.
+
+## Fase 2 — webhook GET/POST  (hecha)
+
+- [x] `application/webhook.py`: `WebhookResponse` + `WebhookReceiver` —
+  `verify_subscription` (challenge con `hmac.compare_digest` en tiempo constante;
+  cualquier desajuste → 403 genérico sin decir qué falló) y `receive` (firma
+  **obligatoria** → `InvalidSignatureError`; JSON defensivo → `ValidationError`;
+  `detect_channel` → `EVENT_RECEIVED` o `EVENT_IGNORED`). Con un comentario que marca
+  dónde entra el flujo de la Fase 4 (normalize → tenant → dedup → encolado).
+- [x] `handler/lambda_webhook.py`: `main` (composition root) sobre el payload 2.0 de
+  API Gateway: método GET/POST/405, cabeceras case-insensitive, `rawBody` base64,
+  traducción `AppError → statusCode + {"error": <code>}` (nunca `details` ni trazas),
+  fail fast si faltan los secretos, `text/plain` para el challenge y
+  `application/json` para errores.
+- [x] Settings: `CHATBOT_WEBHOOK_VERIFY_TOKEN` + `CHATBOT_META_APP_SECRET`
+  (opcionales a nivel de `Settings`; el `WebhookReceiver` exige ambos) con
+  `TODO(verify)` de inyección en prod sin exponerlos en el estado de TF.
+- [x] Tests: `test_conversation_gateway_webhook.py` (24: challenge ok/5 inválidos,
+  firma válida/alterada/ausente/envelope ignorado/cuerpo no-objeto, handler GET/POST
+  403/405/base64/fail-fast/sin trazas) + `test_shared_config.py` (1) y
+  `test_conversation_gateway_domain.py` (24 de la Fase 1) — **54 tests en verde**.
+- [x] Batería verde + commit `feat(paso-9): webhook meta con verificacion y firma`.
+- Nota: el `handler = "handler.main"` de Terraform pasará a
+  `handler.lambda_webhook.main` al empaquetar el zip (Fase 6).
 
 ## Criterios de hecho del ROADMAP (§1 fila 9)
 
