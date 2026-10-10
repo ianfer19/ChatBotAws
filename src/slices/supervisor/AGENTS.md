@@ -8,8 +8,10 @@
 > (router determinista de drafts, ADR 0011 §5) con `ConfirmerPort` y `DraftStorePort`
 > opcionales (`None` → router desactivado). **Fase 5 del Paso 5**: confirmer real
 > cableado en la composición del REPL (`scripts/chat_citas.py`) y evals e2e de
-> citas/pedidos que pasan por este supervisor. Handoff y abuso (`sentiment_handoff`,
-> `abuse_protection`) siguen fuera de la ruta (ROADMAP §4).
+> citas/pedidos que pasan por este supervisor. **Paso 7**: el nodo `route_faq`
+> invoca el grafo `faq` de `knowledge_rag` cuando la composición lo inyecta
+> (`faq_graph=None` → `route_pending`, retrocompatible). Handoff y abuso
+> (`sentiment_handoff`, `abuse_protection`) siguen fuera de la ruta (ROADMAP §4).
 
 ## Responsabilidad
 
@@ -31,7 +33,8 @@ tools de negocio.
 ## Grafo (Paso 4)
 
 - `application/graph.py` → `build_supervisor_graph(llm, context_reader, allowed_bots,
-  appointments_graph, orders_graph=None, draft_store=None, confirmer=None)`. Nodos en
+  appointments_graph, orders_graph=None, faq_graph=None, draft_store=None,
+  confirmer=None)`. Nodos en
   `application/nodes/`:
   `load_context` (exige `history`; lee el contexto con los ids del mensaje y falla si
   no lo hay), `resolve_pending` (Fase 4 del Paso 5: si hay draft `AWAITING_CONFIRMATION`
@@ -44,13 +47,16 @@ tools de negocio.
   `SupervisorDecision` con reintento; proveedor caído
   → palabras clave con log; salida ilegible → `confidence=0.0`), `decide`
   (`resolve_route` del dominio; sus errores se traducen a `reply` + `route_error`),
-  `greet` (saludo neutral propio), `route_appointments` y `route_orders` (invocan el
-  grafo de citas/pedidos ya compilado, ADR 0010) y `route_pending` (deja el `RoutedTurn`
-  para ventas/faq y para pedidos cuando `orders_graph` no está inyectado).
+  `greet` (saludo neutral propio), `route_appointments`, `route_orders` y `route_faq`
+  (Paso 7: espejo de `route_orders` sin `conversation_id`; si `faq_graph` es `None` o
+  no devuelve `reply`, degrada con `_MSG_SIN_RESPUESTA` + log
+  `supervisor.empty_specialist_reply`) y `route_pending` (deja el `RoutedTurn`
+  para ventas/faq y para pedidos cuando su grafo no está inyectado).
   Aristas: `START → load_context → resolve_pending → {classify | END}` (la ruta la fija
   `ruta_tras_pendiente`: `END` solo cuando el router escribió `reply`).
-  La ruta condicional `ruta_tras_decidir` solo manda a `route_orders` si el grafo de
-  pedidos existe; en caso contrario va a `route_pending` (retrocompatible).
+  La ruta condicional `ruta_tras_decidir` solo manda a `route_orders`/`route_faq` si
+  el grafo correspondiente existe; en caso contrario va a `route_pending`
+  (retrocompatible).
 - `SupervisorState` (`application/state.py`): el llamador pone `message` e `history`;
   el resto lo escriben los nodos (`NotRequired`).
 - El prompt del clasificador siempre incluye el bloque de contexto y la ventana de
@@ -98,8 +104,10 @@ tools de negocio.
    salida (`blocked` o `human_takeover`), el supervisor no invoca agentes (cuando
    existan; fuera de la ruta).
 4. Intención desconocida o baja confianza (umbral `0.5`, `TODO(verify)`) → respuesta
-   honesta del supervisor con `route_error=ambiguous_intent`; nunca inventar. Cuando
-   exista `knowledge_rag` (Paso 7) esta ruta pasará al agente `faq` (ADR 0010).
+   honesta del supervisor con `route_error=ambiguous_intent`; nunca inventar. La
+   intención `faq` sí tiene ruta propia desde el **Paso 7**: `route_faq` invoca el
+   grafo de `knowledge_rag` cuando está inyectado (ADR 0010); la ambigüedad no se
+   delega al RAG, sigue con respuesta honesta.
 5. `allowed_bots` del tenant restringe las rutas disponibles (p. ej. comercio sin citas
    → nunca enruta a `appointments`, responde «servicio no disponible»). `supervisor`
    (saludo) y `faq` no dependen de entitlements.
@@ -128,7 +136,7 @@ responde con el saludo plantilla del tenant.
 | `IntentNotAllowedByTenant` | Intención válida pero no en `allowed_bots` | `reply` «Ese servicio aún no está disponible...» + `route_error=intent_not_allowed` + log info |
 | `MissingTurnInputsError` | Turno sin historial, sin texto o sin contexto | El turno **falla** en el primer nodo (regresión 7.2) |
 | Fallo de `LLMPort` | Bedrock caído | Clasificación por palabras clave + log warn `supervisor.keyword_fallback` |
-| Especialista sin `reply` | El grafo de citas no redactó (no debería) | Mensaje honesto de reintento + log warn `supervisor.empty_specialist_reply` |
+| Especialista sin `reply` | El grafo de citas/pedidos/faqs no redactó (no debería) | Mensaje honesto de reintento + log warn `supervisor.empty_specialist_reply` |
 
 ## Cómo probarlo
 
@@ -138,7 +146,10 @@ responde con el saludo plantilla del tenant.
   turnos sin contexto/historial fallan, saludo sin invocar a nadie, citas invocan al
   especialista conservando ids, fallo de Bedrock → palabras clave; Fase 3 del Paso 5:
   pedidos invocan `route_orders` con `conversation_id` compuesto, sin `orders_graph`
-  caen en `route_pending` y `ruta_tras_decidir` distingue ambas rutas).
+  caen en `route_pending` y `ruta_tras_decidir` distingue ambas rutas; Paso 7:
+  `route_faq` comparte `tenant_id`/`correlation_id`/`history` **sin**
+  `conversation_id`, `faq_graph=None` o sin `reply` degrada a mensaje honesto y
+  `ruta_tras_decidir` solo manda a `route_faq` si el grafo está inyectado).
 - Unit router (Fase 4 del Paso 5, hecho): `tests/unit/test_supervisor_resolve_pending.py`
   — match exacto sí/no sin LLM, respaldo con eco de `payload_hash`, hash desfasado y
   JSON ilegible pasan al agente, draft expirado, undo dentro/fuera de ventana,

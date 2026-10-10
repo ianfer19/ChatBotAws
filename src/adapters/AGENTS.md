@@ -14,20 +14,28 @@ y sin importar `slices.*` (lo verifica import-linter en CI).
 
 | Paquete | Servicio | Implementa | Paso |
 |---|---|---|---|
-| `in_memory/` | Sin servicio (dobles en memoria de puertos compartidos) | `DraftStorePort` | 5 |
-| `bedrock/` | Amazon Bedrock (modelos, Guardrails, Prompt Management) | `shared.ports.LLMPort` + cliente de guardrails/prompt | 2 y 13 |
+| `in_memory/` | Sin servicio (dobles en memoria de puertos compartidos) | `DraftStorePort`, `VectorStorePort`, `EmbeddingsPort` | 5 y 7 |
+| `bedrock/` | Amazon Bedrock (modelos, embeddings, Guardrails, Prompt Management) | `shared.ports.LLMPort` + `EmbeddingsPort` (`BedrockEmbeddings`) + cliente de guardrails/prompt | 2, 7 y 13 |
 | `agentcore/` | Bedrock AgentCore (Runtime, Memory, Gateway, Identity, Policy) | puertos de memoria/gateway | 10–12 |
 | `dynamodb/` | DynamoDB (tablas operacionales) | puertos de persistencia de contexto/conversación/abuso | 6 |
-| `aurora/` | Aurora PostgreSQL v2 + pgvector (SOLO conocimiento) | `VectorStorePort` de RAG | 7 |
+| `aurora/` | Aurora PostgreSQL v2 + pgvector (SOLO conocimiento) | `VectorStorePort` (búsqueda pgvector con `tenant_id`) | 7 |
 | `s3/` | S3 (archivo conversaciones y media) | puertos de archivo | 6 |
 | `comprehend/` | Amazon Comprehend (sentimiento) | `SentimentPort` de handoff | fuera de ruta |
 | `legacy_backend/` | APIs HTTP del backend `sahagunonline/back` | puertos de negocio (pedidos, citas, catálogo) | 5 |
 
 **Estado**: `bedrock/` está implementado desde el **Paso 2** — `BedrockLLM(LLMPort)` sobre la
 Converse API, con `bedrock_model_id` (obligatorio) y `bedrock_timeout_seconds` de `Settings`;
-el cliente de Guardrails/Prompt Management llega en el Paso 13. `in_memory/` existe desde el
-**Paso 5** (`InMemoryDraftStore`, doble de `DraftStorePort`; el real llega con `dynamodb/`
-en el Paso 6). Las demás carpetas son esqueletos que se rellenan en sus pasos.
+desde el **Paso 7** añade `BedrockEmbeddings(EmbeddingsPort)` (`invoke-model` con
+`bedrock_embeddings_model_id`, 1536 dims por defecto). `aurora/` está implementado desde el
+**Paso 7**: `AuroraVectorStore` (pgvector, filtro `tenant_id` siempre presente, score
+`1 - (embedding <=> vec)` recortado a [0,1]), `AuroraConnectionFactory` (secreto en
+Secrets Manager, cacheado, psycopg traducido a `ToolError`) y
+`AuroraDocumentRegistry` vive en `infrastructure/aurora.py` del slice `knowledge_rag`
+(idempotencia de re-ingesta; regla: los adapters transversales no importan slices).
+`in_memory/` existe desde el **Paso 5** (`InMemoryDraftStore`) y desde el **Paso 7** añade
+`InMemoryVectorStore` e `InMemoryEmbeddings` (dobles de tests y evals). El cliente de
+Guardrails/Prompt Management llega en el Paso 13; las demás carpetas son esqueletos que se
+rellenan en sus pasos.
 
 ## Reglas
 

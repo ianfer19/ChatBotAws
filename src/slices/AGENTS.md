@@ -30,7 +30,7 @@ el dominio no importa nada externo (salvo stdlib, pydantic y `shared`).
 | `supervisor` | Router de intención: saludo/smalltalk (ruta propia), ventas, citas, pedidos, FAQ | 4 | implementado |
 | `customer_context` | Contexto del cliente por turno (`get_customer_context`) y su actualización | 4 | implementado |
 | `tenant_prompts` | Prompts por tenant desde Prompt Management con fallback y rollback | fuera de ruta | definido |
-| `knowledge_rag` | Retrieval sobre Aurora+pgvector y respuesta fundamentada con grounding | 7 | definido |
+| `knowledge_rag` | Retrieval sobre Aurora+pgvector y respuesta fundamentada con grounding (grafo `faq`) | 7 | implementado |
 | `appointments` | Reservas/citas con confirmación y validación de horarios | 3 y 5 | implementado |
 | `orders` | Pedidos: carrito, estado y la regla inmutable de la hora | 5 | implementado |
 | `sentiment_handoff` | Sentimiento + reglas → `human_takeover` | fuera de ruta | definido |

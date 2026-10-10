@@ -19,8 +19,9 @@ Colombia). El sistema:
 - Protege el sistema con Guardrails, detección de abuso y handoff humano.
 
 **Estado: Fases 1 y 2 completadas** (esqueleto, documentación, CI y kernel `shared`) y
-**Pasos 1-6 de la ruta** (ports, Bedrock, grafo de citas, supervisor + contexto, tools
-con lógica de negocio propose/commit, e infraestructura Terraform base). La ruta activa es [docs/ROADMAP.md](docs/ROADMAP.md)
+**Pasos 1-7 de la ruta** (ports, Bedrock, grafo de citas, supervisor + contexto, tools
+con lógica de negocio propose/commit, infraestructura Terraform base, y RAG +
+Aurora/pgvector con grafo `faq`). La ruta activa es [docs/ROADMAP.md](docs/ROADMAP.md)
 (14 pasos); visión general: [docs/architecture/OVERVIEW.md](docs/architecture/OVERVIEW.md) y §10.
 
 ---
@@ -296,7 +297,7 @@ de las fases históricas 1–9 a los pasos nuevos).
 | 4 | Supervisor (routing, saludo) + `customer_context` (contexto obligatorio por turno) | **hecho** |
 | 5 | Tools + lógica de negocio (citas, pedidos) con dobles en memoria | **hecho** |
 | 6 | Infraestructura Terraform base (state, red, DynamoDB, S3, Aurora, IAM, apigw, lambda) | **hecho** |
-| 7 | RAG + Aurora/pgvector (`knowledge_rag`, `VectorStorePort` → `adapters/aurora`) | pendiente |
+| 7 | RAG + Aurora/pgvector (`knowledge_rag`, `VectorStorePort` → `adapters/aurora`) | **hecho** |
 | 8 | Memory / checkpoints (checkpointer de LangGraph, ADR 0007) | pendiente |
 | 9 | Conversation gateway (webhook Meta, 3 canales, firma y tenant) | pendiente |
 | 10 | AgentCore Runtime (+ Memory de AgentCore) | pendiente |

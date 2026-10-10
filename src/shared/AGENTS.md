@@ -19,7 +19,7 @@ AWS** y **nunca importa** `slices.*` ni `adapters.*` (lo verifica import-linter 
 | `config/` | Pydantic Settings desde variables de entorno | Valores por defecto sensibles, secretos en código |
 | `context/` | `contextvar` de tenant/correlación, helper de composición (DI) | Estado global mutable |
 | `contracts/` | Modelos Pydantic de mensajes/eventos entre slices (versionados) | Implementaciones, lógica de caso de uso |
-| `ports/` | `LLMPort`, `VectorStorePort`, `MemoryStorePort`, `ClockPort`, `EventBusPort` (Protocol) | Adapters concretos (viven en `adapters/`) |
+| `ports/` | `LLMPort`, `EmbeddingsPort`, `VectorStorePort`, `MemoryStorePort`, `ClockPort`, `EventBusPort`, `DraftStorePort` (Protocol) | Adapters concretos (viven en `adapters/`) |
 
 ## Estado (Fase 2: implementado)
 
@@ -27,10 +27,10 @@ AWS** y **nunca importa** `slices.*` ni `adapters.*` (lo verifica import-linter 
 |---|---|---|
 | `errors/` | `base.py`: `AppError` (+ `code`/`http_status`), `ValidationError`, `TenantError`, `TenantNotFoundError`, `ContextNotSetError`, `ToolError`, `ToolTimeoutError` | `tests/unit/test_shared_errors.py` |
 | `context/` | `tenant.py`: `TenantContext` (frozen) + `set_context`/`reset_context`/`get_context`/`current_context`/`bind_context` | `tests/unit/test_shared_context.py` |
-| `config/` | `settings.py`: `Settings` (`CHATBOT_ENVIRONMENT`, `CHATBOT_LOG_LEVEL`, `CHATBOT_BEDROCK_MODEL_ID` obligatorio, `CHATBOT_BEDROCK_TIMEOUT_SECONDS`) + `load_settings` | `tests/unit/test_shared_config.py` |
+| `config/` | `settings.py`: `Settings` (`CHATBOT_ENVIRONMENT`, `CHATBOT_LOG_LEVEL`, `CHATBOT_BEDROCK_MODEL_ID` obligatorio, `CHATBOT_BEDROCK_TIMEOUT_SECONDS`, + Paso 7: `CHATBOT_BEDROCK_EMBEDDINGS_MODEL_ID`/`..._DIMENSIONS` y `CHATBOT_AURORA_HOST`/`..._PORT`/`..._DBNAME`/`..._USERNAME`/`..._SECRET_ARN`) + `load_settings` | `tests/unit/test_shared_config.py` |
 | `logging/` | `formatter.py` (JSON + redacción de secretos) + `logger.py` (`configure_logging`, `get_logger`) | `tests/unit/test_shared_logging.py` |
-| `contracts/` | `types.py` (`Channel`, `Intent`, `AgentName`) + `messages.py` (`InboundMessage`, `OutboundMessage`, `RoutedTurn`, `CustomerContext`; `schema_version`, `frozen`, `extra=forbid`) + `pending.py` (`PendingDraft`, `DraftStatus`, `ConfirmationPolicy`, `PolicyDecision`, `compute_payload_hash`; ADR 0011) | `tests/unit/test_shared_contracts.py`, `test_shared_drafts.py` |
-| `ports/` | `base.py`: `ClockPort`, `EventBusPort`; `llm.py`: `LLMMessage`, `LLMResult`, `LLMPort`; `vector.py`: `VectorRecord`, `VectorHit`, `VectorStorePort`; `memory.py`: `MemoryStorePort`; `draft.py`: `DraftStorePort` (todos `runtime_checkable`) | `tests/unit/test_shared_ports.py`, `test_shared_drafts.py` |
+| `contracts/` | `types.py` (`Channel`, `Intent`, `AgentName`) + `messages.py` (`InboundMessage`, `OutboundMessage`, `RoutedTurn`, `CustomerContext`; `schema_version`, `frozen`, `extra=forbid`) + `pending.py` (`PendingDraft`, `DraftStatus`, `ConfirmationPolicy`, `PolicyDecision`, `compute_payload_hash`; ADR 0011) + `rag.py` (Paso 7: `KnowledgeQuery` sin `tenant_id`, `EvidenceChunk` con score 0..1) | `tests/unit/test_shared_contracts.py`, `test_shared_drafts.py`, `test_rag_contracts.py` |
+| `ports/` | `base.py`: `ClockPort`, `EventBusPort`; `llm.py`: `LLMMessage`, `LLMResult`, `LLMPort`; `embeddings.py` (Paso 7): `EmbeddingsPort`; `vector.py`: `VectorRecord`, `VectorHit`, `VectorStorePort`; `memory.py`: `MemoryStorePort`; `draft.py`: `DraftStorePort` (todos `runtime_checkable`) | `tests/unit/test_shared_ports.py`, `test_shared_drafts.py` |
 
 Errores propios de un slice: subclasificar `AppError` en el slice (p. ej.
 `InvalidSignatureError` en `conversation_gateway`). Contratos nuevos: añadir el modelo a
