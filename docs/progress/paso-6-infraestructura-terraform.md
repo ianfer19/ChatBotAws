@@ -5,7 +5,7 @@
 > sin releer el código. Criterio de cierre del paso:
 > [ROADMAP §1 fila 6](../ROADMAP.md). Decisiones de alcance: ADR 0012 (Fase 5).
 >
-> **Estado global: FASE 1 de 5 completada; siguiente: Fase 2 (network + dynamodb + s3).**
+> **Estado global: FASE 2 de 5 completada; siguiente: Fase 3 (aurora + iam).**
 
 ## Decisiones cerradas con el usuario (2026-10-09)
 
@@ -36,17 +36,22 @@
 - [x] Docs: `infra/README.md` (uso bootstrap → envs), AGENTS §2 (comentario del
       progress → Paso 6) y §10 fila 6 → **en curso**; este checklist.
 
-## Fase 2 — network + dynamodb + s3  (pendiente)
+## Fase 2 — network + dynamodb + s3  (hecha)
 
-- [ ] `network`: VPC + 2 subnets privadas; sin NAT por defecto; endpoints gateway
-      opcionales; Lambdas fuera de VPC (SECURITY §6).
-- [ ] `dynamodb`: mapa de tablas on-demand con TTL `ttl` + KMS — las 5 de
-      `DATA_MODEL` + `pending_actions` (ADR 0011, TTL 24 h) +
-      `order_locks`/`appointment_locks` (INTEGRATION §5).
-- [ ] `s3`: bucket de archivo con prefijos `<tenant_id>/conversations|media`,
-      Block Public Access, SSE-KMS con llave por entorno; lifecycle →
-      `TODO(verify)` (ADR 0007).
-- [ ] Cableado en los 3 envs + fmt/validate en verde.
+- [x] `network`: VPC + 2 subnets privadas en AZ distintas con una tabla de rutas
+      privada; sin NAT/IGW/endpoints por defecto (SECURITY §6: Lambdas fuera de
+      VPC); endpoints → `TODO(verify)` cuando un recurso interno lo justifique.
+- [x] `dynamodb`: fábrica de tablas (`pk`/`sk`/`ttl` opcionales) on-demand con
+      cifrado SSE y llave del entorno — las 5 de `DATA_MODEL` + `pending_actions`
+      (ADR 0011, TTL 24 h) + `order_locks`/`appointment_locks` (INTEGRATION §5,
+      idempotencia por `correlation_id` → `TODO(verify)` del mecanismo final).
+- [x] `s3`: bucket de archivo por entorno con prefijo de cuenta (unicidad
+      global), `BucketOwnerEnforced`, Block Public Access, SSE-KMS con llave del
+      entorno + bucket key y política solo-TLS; lifecycle → `TODO(verify)`
+      (ADR 0007). KMS: módulo nuevo `kms` (una llave por entorno, rotación
+      activada) compartida por s3/dynamodb (y Aurora en la Fase 3).
+- [x] Cableado en los 3 envs (`versions.tf`, `variables.tf`, `main.tf`,
+      `outputs.tf`; CIDRs 10.10/10.20/10.30.0.0/16) + fmt/validate en verde.
 
 ## Fase 3 — aurora + iam  (pendiente)
 
