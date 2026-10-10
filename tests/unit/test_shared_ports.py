@@ -6,8 +6,12 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError as PydanticValidationError
 
+from shared.contracts.messages import OutboundMessage
+from shared.contracts.types import Channel
 from shared.errors import ValidationError
 from shared.ports import (
+    ChannelMessage,
+    ChannelPort,
     ClockPort,
     EventBusPort,
     LLMMessage,
@@ -115,6 +119,33 @@ class _FakeBus:
         self.events.append((event_name, dict(payload)))
 
 
+class _FakeChannel:
+    """Canal falso con la firma completa de `ChannelPort` (sin llamar a Meta)."""
+
+    def __init__(self) -> None:
+        self.sent: list[OutboundMessage] = []
+        self._message = ChannelMessage(
+            channel="whatsapp",
+            emitter_id="1000",
+            customer_id="5215512345678",
+            message_id="wamid.1",
+            timestamp=datetime(2026, 10, 10, 12, 0, tzinfo=UTC),
+        )
+
+    def normalize_inbound(
+        self, payload: Mapping[str, object], *, channel: Channel
+    ) -> ChannelMessage | None:
+        del payload, channel
+        return self._message
+
+    def send(self, message: OutboundMessage) -> None:
+        self.sent.append(message)
+
+    def verify_credentials(self, *, channel: Channel, tenant_id: str) -> bool:
+        del channel, tenant_id
+        return True
+
+
 class _NotAPort:
     """Clase que no implementa ningún port (caso negativo)."""
 
@@ -130,6 +161,7 @@ def test_dobles_satisfacen_sus_ports() -> None:
     assert isinstance(_FakeVectorStore(), VectorStorePort)
     assert isinstance(_FakeMemoryStore(), MemoryStorePort)
     assert isinstance(_FakeBus(), EventBusPort)
+    assert isinstance(_FakeChannel(), ChannelPort)
 
 
 def test_dobles_tipados_cumplen_la_firma_estructural() -> None:
@@ -137,9 +169,11 @@ def test_dobles_tipados_cumplen_la_firma_estructural() -> None:
     llm: LLMPort = _FakeLLM()
     vector: VectorStorePort = _FakeVectorStore()
     memoria: MemoryStorePort = _FakeMemoryStore()
+    canal: ChannelPort = _FakeChannel()
     assert isinstance(llm, LLMPort)
     assert isinstance(vector, VectorStorePort)
     assert isinstance(memoria, MemoryStorePort)
+    assert isinstance(canal, ChannelPort)
 
 
 def test_clase_sin_la_firma_no_satisface_el_port() -> None:
@@ -149,6 +183,7 @@ def test_clase_sin_la_firma_no_satisface_el_port() -> None:
     assert not isinstance(_NotAPort(), VectorStorePort)
     assert not isinstance(_NotAPort(), MemoryStorePort)
     assert not isinstance(_NotAPort(), EventBusPort)
+    assert not isinstance(_NotAPort(), ChannelPort)
 
 
 def test_reloj_falso_devuelve_el_instante_fijado() -> None:

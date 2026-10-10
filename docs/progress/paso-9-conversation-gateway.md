@@ -1,0 +1,99 @@
+# Progreso — Paso 9: Conversation gateway
+
+> **Checklist vivo del Paso 9.** Se actualiza tras cada commit de la fase: `[x]` hecho,
+> `[~]` en curso, `[ ]` pendiente. Es la respuesta rápida a «¿qué se hizo y qué falta?»
+> sin releer el código. Criterio de cierre del paso:
+> [ROADMAP §1 fila 9](../ROADMAP.md). Decisiones de alcance: este mismo archivo.
+>
+> **Estado global: PASO 9 EN CURSO — Fase 1 COMPLETA (1 de 7). Siguiente: Fase 2
+> (webhook GET `hub.challenge` + POST con firma).**
+
+## Decisiones cerradas con el usuario (2026-10-10)
+
+1. [x] **Pipeline completo**: webhook Meta → SQS (+DLQ) → consumer → supervisor
+   (Bedrock) → respuesta al canal. Nada de procesamiento inline en el webhook.
+2. [x] **Estructura de datos = legacy** (con la arquitectura del repo): claves
+   `WA_CONFIG#<phone_number_id>|METADATA` / `IG_CONFIG#` / `FB_CONFIG#` → `store_id`;
+   mensajes con `raw_payload`, `sender`, `media_id/media_type/media_url`,
+   `correlation_id`; dedup `MSG_PROCESSED#<message_id>|DEDUP` con
+   `attribute_not_exists` + TTL 24 h (**clave por tenant**: el legacy es global y aquí
+   rige la regla de aislamiento); credenciales en SSM SecureString
+   `/sahagun/{canal}/{tenant}/access_token|app_secret`. Todo tras ports del slice.
+3. [x] **Respuesta al canal copiando el `whatsapp_webhook_service` legacy**
+   (`sahagunonline/back/src/whatsapp_webhook_service`): Cloud API
+   `POST graph.facebook.com/v24.0/{phone_number_id}/messages` con token en header para
+   texto, IG con token en query, estados de lectura ignorados, respuestas del consumer
+   con `batchItemFailures`. **Diferencia deliberada**: la firma HMAC es **obligatoria y
+   activa** en todos los entornos (el legacy la tiene comentada en `app.py:65-68`; el
+   ADR 0006 no permite desactivarla).
+4. [x] **Sin prueba de tráfico real en este cierre**: se crea un **endpoint admin**
+   (`POST /admin/channels`) para que los usuarios carguen sus credenciales (IG/WA/etc.)
+   en dev — escribe SSM y crea el mapping. El criterio «prueba con tráfico real de los
+   3 canales» queda **pendiente de entorno dev**.
+5. [x] **Media (fotos, videos, notas de voz): solo atributos** — el gateway normaliza y
+   persiste `media_id`/`media_type`/`media_url` en el mensaje; la descarga a S3 y la
+   transcripción quedan en `media_handling` (fuera de la ruta, ROADMAP §4).
+6. [x] **Endpoint admin sin authorizer completo** (dev): token propio mínimo, sin
+   validación contra Meta antes de guardar (`TODO(verify)`).
+
+## Refinamiento de las fases (vs. el plan inicial de 5)
+
+- **7 fases en vez de 5**: (a) los parsers de canal suben a la Fase 3 —antes que
+  tenant/dedup— porque el flujo necesita normalizar el payload para obtener
+  `emitter_id` y `message_id`; (b) credenciales + endpoint admin se separan a la Fase 5.
+- Cada fase = 1 commit + batería verde antes de avanzar.
+
+| Fase | Alcance | Estado |
+|---|---|---|
+| 1 | Domain + `ChannelPort` + errores + dobles en memoria | `[x]` |
+| 2 | Webhook: `GET hub.challenge` + `POST` con firma HMAC | `[ ]` |
+| 3 | Normalización: parsers de los 3 canales → `ChannelMessage` | `[ ]` |
+| 4 | Tenant + dedup + encolado + módulo SQS/IAM (Terraform) | `[ ]` |
+| 5 | Credenciales (SSM) + endpoint admin + `verify_credentials` | `[ ]` |
+| 6 | Consumer (persistencia + supervisor) + envío de respuestas + zips | `[ ]` |
+| 7 | Cierre: AGENTS, ROADMAP, checklist, batería final | `[ ]` |
+
+## Fase 1 — domain + `ChannelPort`  (hecha)
+
+- [x] `shared/ports/channel.py`: `ChannelMessage` (mensaje normalizado **antes** de
+  resolver tenant/correlación; vive en el port porque lo devuelve, como `LLMMessage` en
+  `llm.py`) + `ChannelPort` (`normalize_inbound`/`send`/`verify_credentials`; la
+  «clasificación de tipo de mensaje» del ADR 0009 es el campo `message_type`).
+- [x] `domain/errors.py`: `InvalidSignatureError` (403), `DuplicateMessageError`
+  (http 200: no es un error para Meta, es un acuse silencioso).
+- [x] `domain/signature.py`: `is_valid_signature` — HMAC-SHA256 con
+  `hmac.compare_digest` (tiempo constante); sin cabecera o sin secreto → `False`
+  (a diferencia del legacy, que acepta sin firma).
+- [x] `domain/channels.py`: `detect_channel` por el campo `object` del envelope
+  (`whatsapp_business_account`/`instagram`/`page` → canal; desconocido → `None`).
+- [x] `domain/ports.py`: `TenantResolverPort` (levantó `TenantNotFoundError`) y
+  `DeduplicationPort.register_once(tenant_id, message_id)`.
+- [x] `infrastructure/in_memory.py`: `InMemoryTenantResolver`,
+  `InMemoryDeduplication`, `InMemoryChannel` (captura lo enviado).
+- [x] Tests: `tests/unit/test_conversation_gateway_domain.py` (24: firma válida/
+  alterada/sin cabecera/sin prefijo, detección de 3 canales + desconocido,
+  contrato `ChannelMessage` inmutable/con límite 4096/con media, resolución
+  presente/ausente/por canal, dedup primera vez/duplicado/aislamiento por tenant,
+  conformance de los 3 dobles) + `ChannelPort` en `test_shared_ports.py`.
+- [x] Batería verde + commit `feat(paso-9): dominio y channelport del gateway de
+  conversacion`.
+
+## Criterios de hecho del ROADMAP (§1 fila 9)
+
+- [ ] **Prueba con tráfico real de los 3 canales** → **pendiente de entorno dev**
+  (los endpoints de credenciales llegan en la Fase 5; hasta entonces no hay con qué).
+- [ ] **Deduplicación** (Fase 4, con test de duplicado → 200 silencioso).
+- [ ] **Aislamiento por tenant** (Fases 4 y 6, con test).
+- [ ] Webhook completo tras `ChannelPort`: `hub.challenge`,
+  `X-Hub-Signature-256`, resolución de `tenant_id`, SQS (Fases 2–4).
+- [ ] Batería completa en verde al cierre de la Fase 7.
+
+## Pendientes explícitos (no bloquean el cierre)
+
+- `TODO(verify)`: valores exactos del campo `object` de Meta (Graph API v24.0); nombres
+  exactos de claves IG/FB en el legacy; mecanismo de replicación del mapeo
+  canal→tenant desde el legacy; conmutación por número/WABA
+  (INTEGRATION_WITH_LEGACY §3); tamaños/timeout de la cola y rate limiting contra
+  Meta; empaquetado de los zips de Lambda.
+- `TODO(decision)`: TTL del dedup (24 h como legacy vs. menor); si el pipeline nuevo
+  merece un ADR propio (se valora en la Fase 7: hoy cubre ADR 0006/0009/0003).
