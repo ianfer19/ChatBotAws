@@ -5,8 +5,8 @@
 > sin releer el código. Criterio de cierre del paso:
 > [ROADMAP §1 fila 8](../ROADMAP.md). Decisiones de alcance: ADR 0013 (Fase 5).
 >
-> **Estado global: PASO 8 EN CURSO (Fase 4 de 5 completadas; siguiente: Fase 5 —
-> ADR 0013 + docs + cierre); tras el cierre: Paso 9 (Conversation gateway).**
+> **Estado global: PASO 8 COMPLETO (5/5 fases); siguiente: Paso 9 (Conversation
+> gateway).**
 
 ## Decisiones cerradas con el usuario (2026-10-10)
 
@@ -98,14 +98,15 @@
 - [x] Tests con el cliente mockeado en `test_adapters_dynamodb_memory.py` (sin AWS
       real) + test de `Settings`.
 
-## Fase 5 — ADR 0013 + docs + cierre  (pendiente)
+## Fase 5 — ADR 0013 + docs + cierre  (hecha)
 
-- [ ] ADR 0013 (checkpointer custom tras port, `thread_id` con tenant, ventana y
+- [x] ADR 0013 (checkpointer custom tras port, `thread_id` con tenant, ventana y
       resumen, tabla dedicada) + índice ADR.
-- [ ] AGENTS (raíz §10 fila 8 → hecho, `shared`, `supervisor`, `adapters`, índice de
-      slices si procede), `MEMORY_AND_CONTEXT.md`, `CLAUDE.md` → paso 9, REPL con
-      checkpointer y este checklist.
-- [ ] Batería completa en verde (ruff, format, mypy, pytest, lint-imports,
+- [x] AGENTS (raíz §10 fila 8 → hecho, §1 Pasos 1-8, §8 requisito de memoria +
+      D10, `shared`, `supervisor`, `adapters`, `MEMORY_AND_CONTEXT.md`),
+      `CLAUDE.md` → paso 9, REPL con checkpointer (hilo `tenant#whatsapp:cliente`,
+      `/reset` borra el hilo) y este checklist.
+- [x] Batería completa en verde (ruff, format, mypy, pytest, lint-imports,
       terraform fmt, final_review, pyrefly).
 
 ## Criterios de hecho del ROADMAP (§1 fila 8)
@@ -114,7 +115,7 @@
       turnos separados recupera el estado (eval Fase 3).
 - [x] **Sin fuga de estado entre invocaciones**: conversaciones/tenants distintos no
       comparten nada (eval Fase 3).
-- [ ] Batería completa en verde al cierre de la Fase 5.
+- [x] Batería completa en verde al cierre de la Fase 5.
 
 ## Pendientes explícitos (no bloquean el cierre)
 

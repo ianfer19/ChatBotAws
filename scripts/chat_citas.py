@@ -7,6 +7,12 @@ especialistas compilados sobre `BedrockLLM` y dobles en memoria. La allowlist fi
 cada especialista se deriva de `allowed_bots` en esta composición. Sirve para ver un
 turno completo sin desplegar nada. No es código de producción.
 
+Desde el **Paso 8** la sesión lleva checkpointer (`PortCheckpointSaver` sobre un
+`InMemoryMemoryStore`, hilo `tenant#whatsapp:cliente`): el resumen rodante y el estado
+del turno sobreviven entre invocaciones y `/reset` borra el hilo completo. La ventana de
+historial la aplica el grafo (`history_window_size`), no el script; en producción el
+mismo port se apunta a DynamoDB (`CHATBOT_CHECKPOINTS_TABLE`).
+
 Uso (PowerShell, desde la raíz del repo):
 
     $env:AWS_PROFILE = "iastock-old"
@@ -16,9 +22,8 @@ Uso (PowerShell, desde la raíz del repo):
     python scripts\\chat_citas.py --turno "hola"       # un turno y sale (smoke local)
     python scripts\\chat_citas.py --tenant Otro --debug
 
-Comandos del REPL: `/status` (sesión y citas creadas), `/reset` (borra la ventana de
-historial) y `/salir` (o Ctrl+D / Ctrl+C). No hay persistencia: la ventana de historial
-vive en memoria hasta el checkpointer del Paso 8 (`TODO(decision)`).
+Comandos del REPL: `/status` (sesión, hilo y citas creadas), `/reset` (borra la ventana
+de historial y el checkpoint del hilo) y `/salir` (o Ctrl+D / Ctrl+C).
 """
 
 import argparse
@@ -33,10 +38,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from botocore.exceptions import NoRegionError
+from langgraph.checkpoint.base import RunnableConfig
 from pydantic import ValidationError as PydanticValidationError
 
 from adapters.bedrock import BedrockLLM
-from adapters.in_memory import InMemoryDraftStore
+from adapters.checkpointer import PortCheckpointSaver, thread_id_de
+from adapters.in_memory import InMemoryDraftStore, InMemoryMemoryStore
 from shared.config import load_settings
 from shared.contracts import AgentName, InboundMessage
 from shared.contracts.pending import PendingDraft
@@ -66,7 +73,7 @@ from slices.supervisor.application.graph import build_supervisor_graph
 
 _TENANT_DEMO = "Sede_Elite_01"
 _CLIENTE_DEMO = "57300111111"  # sintético: nunca datos reales de clientes en el repo
-_HISTORIAL_MAX = 10  # ventana de mensajes que ve el LLM (mismo N que los states)
+_CONVERSACION_DEMO = f"whatsapp:{_CLIENTE_DEMO}"
 _SALIR = {"/salir", "/exit", "exit", "quit"}
 # Horario de prueba (lun a vie, 9:00-18:00, hora local naive): el real llega con RAG (Paso 7).
 _HORARIO: tuple[OpeningHoursDay, ...] = tuple(
@@ -275,7 +282,8 @@ class _Sesion:
 
         Comparte un único `InMemoryDraftStore` entre las tools, el router
         `resolve_pending` y el confirmer, y deriva la allowlist fina de cada
-        especialista de `allowed_bots`.
+        especialista de `allowed_bots`. El checkpointer (Paso 8) persiste cada
+        turno en un `InMemoryMemoryStore` bajo el hilo `tenant#conversación`.
 
         Args:
             tenant: Comercio simulado (el gateway lo resolverá en el Paso 9).
@@ -290,6 +298,8 @@ class _Sesion:
         self.modelo = settings.bedrock_model_id
         self.historial: list[LLMMessage] = []
         self.turnos = 0
+        self.hilo = thread_id_de(tenant_id=tenant, conversation_id=_CONVERSACION_DEMO)
+        self._checkpointer = PortCheckpointSaver(store=InMemoryMemoryStore())
         self.repo = InMemoryAppointmentRepository()
         self.repo_pedidos = InMemoryOrderRepository()
         reloj = _RelojLocal()
@@ -331,10 +341,11 @@ class _Sesion:
             orders_graph=pedidos,
             draft_store=drafts,
             confirmer=confirmer,
+            checkpointer=self._checkpointer,
         )
 
     def turno(self, mensaje: str) -> dict[str, object]:
-        """Ejecuta un turno por el supervisor y recorta la ventana de historial.
+        """Ejecuta un turno por el supervisor con el hilo persistido.
 
         Args:
             mensaje: Texto del cliente para este turno.
@@ -351,14 +362,15 @@ class _Sesion:
             timestamp=datetime.now(),
             text=mensaje,
         )
+        config: RunnableConfig = {"configurable": {"thread_id": self.hilo}}
         resultado: dict[str, object] = self.grafo.invoke(
-            {"message": entrada, "history": list(self.historial)}
+            {"message": entrada, "history": list(self.historial)},
+            config=config,
         )
         reply = resultado.get("reply")
         self.historial.append(LLMMessage(role="user", content=mensaje))
         if isinstance(reply, str) and reply:
             self.historial.append(LLMMessage(role="assistant", content=reply))
-        del self.historial[:-_HISTORIAL_MAX]
         self.turnos += 1
         return resultado
 
@@ -385,12 +397,12 @@ class _Sesion:
         return self.repo_pedidos.list_for_tenant(tenant_id=self.tenant)
 
     def reiniciar(self) -> None:
-        """Vacía la ventana de historial; las citas en memoria permanecen.
+        """Borra el historial y el checkpoint del hilo; las citas en memoria permanecen.
 
         El repositorio no se recrea: el grafo recibió el actual por DI al compilar,
-        así que vaciarlo obligaría a tocar `src`. `TODO(decision)`: reset completo
-        cuando haya checkpointer (Paso 8).
+        así que vaciarlo obligaría a tocar `src`.
         """
+        self._checkpointer.delete_thread(self.hilo)
         self.historial.clear()
         self.turnos = 0
 
@@ -473,7 +485,8 @@ def _imprimir_status(sesion: _Sesion) -> None:
     print(f"  tenant     : {sesion.tenant}")
     print(f"  modelo     : {sesion.modelo}")
     print(f"  turnos     : {sesion.turnos}")
-    print(f"  historial  : {len(sesion.historial)} mensajes (ventana {_HISTORIAL_MAX})")
+    print(f"  hilo       : {sesion.hilo}")
+    print(f"  historial  : {len(sesion.historial)} mensajes (la ventana la aplica el grafo)")
     citas = sesion.citas()
     if not citas:
         print("  citas      : ninguna en memoria")
@@ -532,7 +545,7 @@ def _repl(sesion: _Sesion, *, debug: bool) -> int:
                 continue
             if linea == "/reset":
                 sesion.reiniciar()
-                print("historial borrado; las citas en memoria siguen (sin checkpointer)")
+                print("historial y checkpoint del hilo borrados; las citas en memoria siguen")
                 continue
             _turno(sesion, linea, debug=debug)
         except (EOFError, KeyboardInterrupt):

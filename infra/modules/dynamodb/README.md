@@ -8,6 +8,8 @@ de entorno; on-demand, sin GSI. **Paso 6.**
 - `aws_dynamodb_table` por entrada de `tables`: claves `PK`/`SK` (los valores
   llevan los prefijos `ORG#…`/`CONV#…` de DATA_MODEL; ADR 0012), TTL opcional en
   el atributo `ttl` y cifrado SSE con la llave del entorno.
+- Entre las tablas, `chatbot_checkpoints` (Paso 8): estado de conversación del
+  checkpointer (`DynamoDBMemoryStore`, ADR 0013).
 
 ## Variables
 

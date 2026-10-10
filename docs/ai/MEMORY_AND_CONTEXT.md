@@ -15,16 +15,24 @@ stock, disponibilidad, estados de pedido y horas siempre salen del legacy.
 
 ## Conversation state (nivel 1)
 
-- **Almacenamiento**: DynamoDB como respaldo del estado de conversación; el
-  orquestador LangGraph persiste su estado con un checkpointer.
-- **Checkpointer**: adaptador sobre DynamoDB. `TODO(verify)` del adaptador
-  concreto y de su API (checkpoint, thread id, resumenes) según la versión de
-  LangGraph usada.
-- **Ventana controlada**: el historial que viaja al prompt se limita a las últimas
-  `N` interacciones (N = 10 como valor inicial, `TODO(verify)`).
-- **Resumen**: al superar el límite, un paso de resumen con un LLM barato condensa
-  el historial descartado. Ese paso **solo resume**: no decide, no aplica reglas de
-  negocio ni escribe en la memoria a largo plazo.
+Implementado en el **Paso 8** (detalle: [ADR 0013](../adr/0013-checkpoint-de-conversacion-y-ventana-de-historial.md)):
+
+- **Checkpointer**: `PortCheckpointSaver(BaseCheckpointSaver[str])`
+  (`src/adapters/checkpointer/`) tras el port `MemoryStorePort`: en desarrollo/tests
+  el doble `InMemoryMemoryStore`, en despliegue `DynamoDBMemoryStore` sobre la tabla
+  `chatbot_checkpoints_<ambiente>` (`CHATBOT_CHECKPOINTS_TABLE`, entorno
+  `dev`/`staging`/`prod`). Cada conversación guarda **solo el checkpoint más reciente**
+  (time-travel: `TODO(verify)`).
+- **Hilo con tenant**: `thread_id = <tenant_id>#<conversation_id>`
+  (`thread_id_de`): el tenant sale del contexto resuelto, nunca del payload del LLM;
+  sin hilo no hay estado y con hilos distintos no hay fuga (tests del supervisor).
+- **Ventana controlada**: el nodo `window_history` limita la ventana del clasificador a
+  `history_window_size` (`CHATBOT_HISTORY_WINDOW_SIZE`, 10 por defecto).
+- **Resumen rodante**: al desbordar, un paso con un LLM barato condensa los turnos
+  recortados y se guarda en `summary` para los turnos siguientes. Ese paso **solo
+  resume**: no decide, no aplica reglas de negocio ni escribe en la memoria a largo
+  plazo; si el proveedor falla se conserva el resumen previo (log
+  `supervisor.summary_failed`) y el turno sigue.
 
 ## Memoria a largo plazo (nivel 2)
 

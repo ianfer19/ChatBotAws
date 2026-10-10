@@ -17,7 +17,10 @@
 > `build_supervisor_graph(..., checkpointer=None)` opcional (`PortCheckpointSaver`
 > en producción); con checkpointer, `window_history` vacía al inicio `reply`,
 > `route_error` y `pending_outcome` para que el turno no herede respuestas del
-> anterior. Handoff y abuso
+> anterior. **Fases 4–5 del Paso 8**: `DynamoDBMemoryStore` sobre la tabla
+> `chatbot_checkpoints` (IAM mínimo del supervisor, env `CHATBOT_CHECKPOINTS_TABLE`)
+> y REPL `scripts/chat_citas.py` cableado al checkpointer (hilo
+> `tenant#whatsapp:cliente`, `/reset` borra el hilo); ADR 0013. Handoff y abuso
 > (`sentiment_handoff`, `abuse_protection`) siguen fuera de la ruta (ROADMAP §4).
 
 ## Responsabilidad
@@ -201,6 +204,8 @@ responde con el saludo plantilla del tenant.
 - Manual contra Bedrock (hecho el 2026-10-08 y extendido el 2026-10-09 en la Fase 5,
   cuenta `iastock-old`): REPL `python scripts\chat_citas.py` pasando por el supervisor
   (`hola` → saludo propio; cita → `intencion=appointments`; pedido → `intencion=orders`;
-  alto monto → draft a la espera y «sí» → `pending_outcome=affirmed` con pedido creado)
+  alto monto → draft a la espera y «sí» → `pending_outcome=affirmed` con pedido creado;
+  desde el Paso 8 el REPL persiste cada turno en su checkpointer en memoria y
+  `/status` muestra el `thread_id`, `/reset` borra el hilo)
   y smoke `tests/integration/test_supervisor_smoke.py` (`3 passed` con perfil
   `iastock-old`, incluida la ruta `route_orders`; en CI se omite sin credenciales).

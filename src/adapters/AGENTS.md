@@ -14,7 +14,8 @@ y sin importar `slices.*` (lo verifica import-linter en CI).
 
 | Paquete | Servicio | Implementa | Paso |
 |---|---|---|---|
-| `in_memory/` | Sin servicio (dobles en memoria de puertos compartidos) | `DraftStorePort`, `VectorStorePort`, `EmbeddingsPort` | 5 y 7 |
+| `in_memory/` | Sin servicio (dobles en memoria de puertos compartidos) | `DraftStorePort`, `VectorStorePort`, `EmbeddingsPort`, `MemoryStorePort` | 5, 7 y 8 |
+| `checkpointer/` | LangGraph (checkpoints de conversación tras un port) | `PortCheckpointSaver(BaseCheckpointSaver[str])` + `thread_id_de` | 8 |
 | `bedrock/` | Amazon Bedrock (modelos, embeddings, Guardrails, Prompt Management) | `shared.ports.LLMPort` + `EmbeddingsPort` (`BedrockEmbeddings`) + cliente de guardrails/prompt | 2, 7 y 13 |
 | `agentcore/` | Bedrock AgentCore (Runtime, Memory, Gateway, Identity, Policy) | puertos de memoria/gateway | 10–12 |
 | `dynamodb/` | DynamoDB (tablas operacionales) | puertos de persistencia de contexto/conversación/abuso + `MemoryStorePort` (`DynamoDBMemoryStore`) | 6 y 8 |
@@ -32,8 +33,11 @@ desde el **Paso 7** añade `BedrockEmbeddings(EmbeddingsPort)` (`invoke-model` c
 Secrets Manager, cacheado, psycopg traducido a `ToolError`) y
 `AuroraDocumentRegistry` vive en `infrastructure/aurora.py` del slice `knowledge_rag`
 (idempotencia de re-ingesta; regla: los adapters transversales no importan slices).
-`in_memory/` existe desde el **Paso 5** (`InMemoryDraftStore`) y desde el **Paso 7** añade
-`InMemoryVectorStore` e `InMemoryEmbeddings` (dobles de tests y evals). `dynamodb/` está
+`in_memory/` existe desde el **Paso 5** (`InMemoryDraftStore`), desde el **Paso 7** añade
+`InMemoryVectorStore` e `InMemoryEmbeddings` y desde el **Paso 8** `InMemoryMemoryStore`.
+`checkpointer/` (Paso 8) traduce la API de `BaseCheckpointSaver` a las tres operaciones de
+`MemoryStorePort` (solo el checkpoint más reciente, `thread_id = tenant#conversación`;
+ADR 0013). `dynamodb/` está
 implementado desde el **Paso 8** con `DynamoDBMemoryStore(MemoryStorePort)` (tabla
 `chatbot_checkpoints`, claves `ORG#`/`CONV#`, TTL, errores traducidos) — las demás
 carpetas son esqueletos que se rellenan en sus pasos. El cliente de
