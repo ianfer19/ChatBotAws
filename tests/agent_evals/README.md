@@ -11,8 +11,9 @@ tests/agent_evals/
 ├── datasets/          # casos versionados (JSON) — ver docs/ai/EVALUATION.md
 │   ├── supervisor_routing.json       # enrutado del supervisor (Paso 4)
 │   ├── appointments_behavior.json    # comportamiento de citas (Paso 5)
-│   └── orders_behavior.json          # comportamiento de pedidos (Paso 5)
-└── test_<nombre>.py   # ejecutores de los datasets (Paso 4 y 5 con LLM doble;
+│   ├── orders_behavior.json          # comportamiento de pedidos (Paso 5)
+│   └── faq_behavior.json             # comportamiento del agente faq (Paso 7)
+└── test_<nombre>.py   # ejecutores de los datasets (Paso 4, 5 y 7 con LLM doble;
                        #   modelo real en el Paso 14)
 ```
 
@@ -37,6 +38,9 @@ tests/agent_evals/
 Estado: `datasets/supervisor_routing.json` + su ejecutor existen desde el **Paso 4**
 (regresión de saludo y enrutado); `orders_behavior.json` y `appointments_behavior.json`
 + sus ejecutores desde el **Paso 5** (regla crítica de la hora, política `AUTO`/`CONFIRM`
-y «sin hora → pide el dato»), todos con LLM doble. Los casos anteriores sin dataset
-(`context_01`, `grounding_01`, `handoff_01`, `tenant_isolation_01`) ya están definidos
-aquí como contrato; los ejecutores con modelo real llegan en el **Paso 14**.
+y «sin hora → pide el dato»), todos con LLM doble. `faq_behavior.json` + su ejecutor
+existen desde el **Paso 7** y cubren `grounding_01` (fuera del conocimiento → fallback
+honesto sin invención), la respuesta con la fuente citada y `tenant_isolation_01` (la
+misma pregunta solo ve los chunks del propio comercio). Los casos anteriores sin
+dataset (`context_01`, `handoff_01`) ya están definidos aquí como contrato; los
+ejecutores con modelo real llegan en el **Paso 14**.

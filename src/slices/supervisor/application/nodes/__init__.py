@@ -13,6 +13,7 @@ from slices.supervisor.application.nodes.greet import greet
 from slices.supervisor.application.nodes.load_context import load_context
 from slices.supervisor.application.nodes.resolve_pending import resolve_pending, ruta_tras_pendiente
 from slices.supervisor.application.nodes.route_appointments import route_appointments
+from slices.supervisor.application.nodes.route_faq import route_faq
 from slices.supervisor.application.nodes.route_orders import route_orders
 from slices.supervisor.application.nodes.route_pending import route_pending
 from slices.supervisor.application.state import SupervisorState
@@ -24,6 +25,7 @@ __all__ = [
     "load_context",
     "resolve_pending",
     "route_appointments",
+    "route_faq",
     "route_orders",
     "route_pending",
     "ruta_tras_decidir",
@@ -41,8 +43,8 @@ def ruta_tras_decidir(state: SupervisorState, *, deps: Deps | None = None) -> st
             llamadas directas de test (retrocompatible con el cableado previo).
 
     Returns:
-        `"greet"`, `"route_appointments"`, `"route_orders"` (solo si el grafo de
-        pedidos está inyectado), `"route_pending"` o `"end"`.
+        `"greet"`, `"route_appointments"`, `"route_orders"` o `"route_faq"` (solo si
+        su grafo está inyectado), `"route_pending"` o `"end"`.
     """
     if state.get("route_error"):
         return "end"
@@ -53,4 +55,6 @@ def ruta_tras_decidir(state: SupervisorState, *, deps: Deps | None = None) -> st
         return "route_appointments"
     if destino == "orders" and deps is not None and deps.orders_graph is not None:
         return "route_orders"
+    if destino == "faq" and deps is not None and deps.faq_graph is not None:
+        return "route_faq"
     return "route_pending"

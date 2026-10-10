@@ -24,6 +24,9 @@ class Deps:
         orders_graph: Grafo de pedidos compilado (invocado por `route_orders`);
             `None` hasta que la composición lo inyecte (Fase 3 del Paso 5): sin él,
             los pedidos caen en `route_pending`.
+        faq_graph: Grafo de respuestas de conocimiento compilado (invocado por
+            `route_faq`, Paso 7); `None` hasta que la composición lo inyecte: sin
+            él, el FAQ cae en `route_pending` (retrocompatible).
         draft_store: Store de drafts con el que `resolve_pending` lee el pendiente de
             la conversación (Fase 4 del Paso 5); `None` desactiva el router.
         confirmer: Resolución de drafts (affirm/deny/undo) que la composición despacha
@@ -36,5 +39,6 @@ class Deps:
     allowed_bots: frozenset[AgentName]
     appointments_graph: SpecialistGraphPort
     orders_graph: SpecialistGraphPort | None = None
+    faq_graph: SpecialistGraphPort | None = None
     draft_store: DraftStorePort | None = None
     confirmer: ConfirmerPort | None = None

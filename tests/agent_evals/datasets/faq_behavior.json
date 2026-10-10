@@ -1,0 +1,63 @@
+{
+  "descripcion": "Comportamiento del agente faq (knowledge_rag) punta a punta por el supervisor (Paso 7). Cubre grounding_01 (fuera del conocimiento -> fallback honesto sin invencion), la respuesta con la fuente citada y tenant_isolation_01 (la misma pregunta solo ve los chunks del propio comercio). El ejecutor usa un LLM doble con las salidas de cada caso; datos sinteticos, sin clientes reales.",
+  "version": 1,
+  "casos": [
+    {
+      "id": "grounding_01",
+      "categoria": "grounding",
+      "entrada": {
+        "tenant": "Sede_Elite_01",
+        "mensaje": "¿Hacen envios a domicilio?",
+        "historial": []
+      },
+      "llm": [
+        { "intent": "faq", "confidence": 0.93 }
+      ],
+      "esperado": {
+        "target": "faq",
+        "llm_llamadas": 1,
+        "reply": "No tengo esa información. ¿Hay algo más en lo que te pueda ayudar?"
+      }
+    },
+    {
+      "id": "faq_fuente_01",
+      "categoria": "grounding",
+      "entrada": {
+        "tenant": "Sede_Elite_01",
+        "mensaje": "¿Cual es el horario de apertura?",
+        "historial": []
+      },
+      "llm": [
+        { "intent": "faq", "confidence": 0.95 },
+        "Abrimos de lunes a sabado de 8:00 a 20:00 (fuente: FAQ Horario)."
+      ],
+      "esperado": {
+        "target": "faq",
+        "llm_llamadas": 2,
+        "reply": "Abrimos de lunes a sabado de 8:00 a 20:00 (fuente: FAQ Horario).",
+        "system_contiene": "El horario de apertura es de lunes a sabado de 8:00 a 20:00.",
+        "system_no_contiene": "lunes a viernes de 9:00 a 18:00"
+      }
+    },
+    {
+      "id": "tenant_isolation_01",
+      "categoria": "aislamiento",
+      "entrada": {
+        "tenant": "Sede_Otro_02",
+        "mensaje": "¿Cual es el horario de apertura?",
+        "historial": []
+      },
+      "llm": [
+        { "intent": "faq", "confidence": 0.94 },
+        "Abrimos de lunes a viernes de 9:00 a 18:00 (fuente: FAQ Horario)."
+      ],
+      "esperado": {
+        "target": "faq",
+        "llm_llamadas": 2,
+        "reply": "Abrimos de lunes a viernes de 9:00 a 18:00 (fuente: FAQ Horario).",
+        "system_contiene": "El horario de apertura es de lunes a viernes de 9:00 a 18:00.",
+        "system_no_contiene": "lunes a sabado de 8:00 a 20:00"
+      }
+    }
+  ]
+}

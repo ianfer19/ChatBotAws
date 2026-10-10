@@ -25,6 +25,7 @@ JSON_SALUDO = '{"intent": "greeting", "confidence": 0.97}'
 JSON_CITA = '{"intent": "appointments", "confidence": 0.95}'
 JSON_VENTAS = '{"intent": "sales", "confidence": 0.91}'
 JSON_PEDIDOS = '{"intent": "orders", "confidence": 0.94}'
+JSON_FAQ = '{"intent": "faq", "confidence": 0.92}'
 JSON_BAJA = '{"intent": "faq", "confidence": 0.2}'
 
 _MSG_SIN_RESPUESTA = "No pude preparar la respuesta. ¿Puedes repetir tu mensaje?"
@@ -220,6 +221,8 @@ def _deps(
     especialista: _EspecialistaEspia | None = None,
     orders_especialista: _EspecialistaEspia | None = None,
     con_orders: bool = True,
+    faq_especialista: _EspecialistaEspia | None = None,
+    con_faq: bool = True,
 ) -> Deps:
     """Construye las dependencias de los nodos con dobles.
 
@@ -230,6 +233,8 @@ def _deps(
         especialista: Doble del grafo de citas (se crea uno si no viene).
         orders_especialista: Doble del grafo de pedidos (se crea uno si no viene).
         con_orders: Si es `False`, no se inyecta grafo de pedidos (`orders_graph=None`).
+        faq_especialista: Doble del grafo faq (se crea uno si no viene).
+        con_faq: Si es `False`, no se inyecta grafo faq (`faq_graph=None`).
 
     Returns:
         Dependencias listas para los nodos sueltos.
@@ -242,6 +247,9 @@ def _deps(
         orders_graph=(orders_especialista or _EspecialistaEspia("Respuesta de pedidos"))
         if con_orders
         else None,
+        faq_graph=(faq_especialista or _EspecialistaEspia("Respuesta del faq"))
+        if con_faq
+        else None,
     )
 
 
@@ -253,6 +261,8 @@ def _grafo(
     especialista: _EspecialistaEspia | None = None,
     orders_especialista: _EspecialistaEspia | None = None,
     con_orders: bool = True,
+    faq_especialista: _EspecialistaEspia | None = None,
+    con_faq: bool = True,
     falla: bool = False,
 ) -> tuple[Any, _FakeLLM, _LectorContexto, _EspecialistaEspia, _EspecialistaEspia | None]:
     """Grafo compilado con todos los dobles a la vista.
@@ -264,6 +274,9 @@ def _grafo(
         especialista: Doble del grafo de citas reutilizable entre tests.
         orders_especialista: Doble del grafo de pedidos reutilizable entre tests.
         con_orders: Si es `False`, el grafo se compone sin grafo de pedidos.
+        faq_especialista: Doble del grafo faq reutilizable entre tests (el que
+            pasa la prueba que lo crea).
+        con_faq: Si es `False`, el grafo se compone sin grafo faq.
         falla: Si es `True`, el LLM falla siempre (Bedrock caído).
 
     Returns:
@@ -273,12 +286,14 @@ def _grafo(
     lector = _LectorContexto(_contexto() if con_contexto else None)
     spy = especialista or _EspecialistaEspia()
     spy_orders = orders_especialista or _EspecialistaEspia("Respuesta de pedidos")
+    spy_faq = faq_especialista or _EspecialistaEspia("Respuesta del faq")
     grafo = build_supervisor_graph(
         llm=llm,
         context_reader=lector,
         allowed_bots=bots,
         appointments_graph=spy,
         orders_graph=spy_orders if con_orders else None,
+        faq_graph=spy_faq if con_faq else None,
     )
     return grafo, llm, lector, spy, spy_orders if con_orders else None
 
@@ -483,4 +498,48 @@ def test_ruta_tras_decidir_solo_manda_a_pedidos_si_hay_grafo() -> None:
     sin_grafo = _deps(_FakeLLM([]), lector=lector, con_orders=False)
     turno = SupervisorState(message=_mensaje("Quiero pedir"), target="orders")
     assert ruta_tras_decidir(turno, deps=con_grafo) == "route_orders"
+    assert ruta_tras_decidir(turno, deps=sin_grafo) == "route_pending"
+
+
+# ------------------------------------------------------------------------- faq (Paso 7)
+
+
+def test_turno_de_faq_invoca_el_grafo_de_faq() -> None:
+    """La ruta FAQ ejecuta su especialista con los ids resueltos en el supervisor."""
+    spy_faq = _EspecialistaEspia("Según la FAQ, abrimos de lunes a sabado.")
+    grafo, _, _, spy, _ = _grafo([JSON_FAQ], faq_especialista=spy_faq)
+    estado = grafo.invoke(_turno("¿Cual es el horario de apertura?"))
+    assert spy.calls == []
+    assert spy_faq.calls == [
+        {
+            "tenant_id": TENANT,
+            "correlation_id": "corr-1",
+            "user_message": "¿Cual es el horario de apertura?",
+            "history": _historial(),
+        }
+    ]
+    assert estado["reply"] == "Según la FAQ, abrimos de lunes a sabado."
+    assert estado["routed"].target == "faq"
+    assert estado["routed"].intent == "faq"
+    assert estado["routed"].message.tenant_id == TENANT
+
+
+def test_faq_sin_grafo_cableado_deja_el_turno_en_pendiente() -> None:
+    """Sin `faq_graph` (composición previa) el turno queda enrutado y sin reply."""
+    grafo, _, _, spy, _ = _grafo([JSON_FAQ], con_faq=False)
+    estado = grafo.invoke(_turno("¿Cual es el horario de apertura?"))
+    assert spy.calls == []
+    assert estado["routed"].target == "faq"
+    assert estado["routed"].intent == "faq"
+    assert "reply" not in estado
+    assert "route_error" not in estado
+
+
+def test_ruta_tras_decidir_solo_manda_a_faq_si_hay_grafo() -> None:
+    """La ruta condicional distingue `route_faq` de `route_pending` según el DI."""
+    lector = _LectorContexto(_contexto())
+    con_grafo = _deps(_FakeLLM([]), lector=lector)
+    sin_grafo = _deps(_FakeLLM([]), lector=lector, con_faq=False)
+    turno = SupervisorState(message=_mensaje("algo"), target="faq")
+    assert ruta_tras_decidir(turno, deps=con_grafo) == "route_faq"
     assert ruta_tras_decidir(turno, deps=sin_grafo) == "route_pending"

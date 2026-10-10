@@ -8,7 +8,7 @@ con umbral de similitud y deduplicación. Sin I/O, sin AWS, sin LLM.
 import hashlib
 import re
 from collections.abc import Sequence
-from typing import cast
+from typing import Literal, cast
 
 from shared.contracts.rag import EvidenceChunk, SourceType
 from shared.ports.vector import VectorHit
@@ -31,6 +31,18 @@ DEFAULT_TOP_K: int = 5
 ALLOWED_SOURCE_TYPES: frozenset[str] = frozenset({"product", "service", "faq", "policy"})
 """Allowlist de orígenes indexables (anti-poisoning): nada fuera de esta lista."""
 
+FallbackReason = Literal["sin_evidencia", "almacen_no_disponible"]
+"""Motivos de degradación del turno faq: el nodo `fallback` los traduce a mensaje."""
+
+_MENSAJES_FALLBACK: dict[str, str] = {
+    "sin_evidencia": "No tengo esa información. ¿Hay algo más en lo que te pueda ayudar?",
+    "almacen_no_disponible": (
+        "No pude consultar la información en este momento. ¿Puedes intentarlo de nuevo?"
+    ),
+}
+_MSG_DESCONOCIDA = "No tengo esa información."
+"""Mensaje por defecto si llega un motivo fuera del contrato (defensa, no ramas)."""
+
 _PARAGRAPH_RE = re.compile(r"\n\s*\n")
 _SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
 
@@ -52,6 +64,25 @@ def validate_document(document: SourceDocument) -> None:
         raise IngestValidationFailed(f"source_type no permitido: {document.source_type!r}")
     if not document.content.strip():
         raise IngestValidationFailed("contenido vacío tras saneado")
+
+
+def mensaje_fallback(razon: FallbackReason) -> str:
+    """Mensaje honesto para un turno sin respuesta fundamentada (regla 3 del slice).
+
+    El modelo nunca redacta estos textos: salen de código, así que un turno sin
+    evidencia o con el almacén caído degrada siempre igual, sin inventar.
+
+    Args:
+        razon: Motivo de la degradación (sin evidencia o almacén no disponible).
+
+    Returns:
+        El mensaje ya redactado para el cliente.
+
+    Example:
+        >>> print(mensaje_fallback("sin_evidencia"))
+        No tengo esa información. ¿Hay algo más en lo que te pueda ayudar?
+    """
+    return _MENSAJES_FALLBACK.get(razon, _MSG_DESCONOCIDA)
 
 
 def compute_content_hash(content: str) -> str:

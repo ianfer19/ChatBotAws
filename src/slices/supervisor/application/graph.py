@@ -1,12 +1,12 @@
 """Grafo del supervisor: nodos, aristas y compilación (ROADMAP Paso 4, Fase 4 Paso 5).
 
 Orden: `load_context` → `resolve_pending` → [fin | classify] → decide → [greet |
-route_appointments | route_orders | route_pending | fin]. El router de pendientes
-(ADR 0011.5) resuelve drafts a la espera con respuesta plantilla antes de clasificar;
-el saludo y las respuestas degradadas terminan en el propio supervisor; las citas y los
-pedidos se ejecutan invocando su grafo ya compilado (nodo anidado, ADR 0010) y el
-resto deja el `RoutedTurn` para cuando existan esos grafos (el de pedidos es opcional
-hasta que la composición lo inyecte).
+route_appointments | route_orders | route_faq | route_pending | fin]. El router de
+pendientes (ADR 0011.5) resuelve drafts a la espera con respuesta plantilla antes de
+clasificar; el saludo y las respuestas degradadas terminan en el propio supervisor;
+las citas, los pedidos y el FAQ se ejecutan invocando su grafo ya compilado (nodo
+anidado, ADR 0010) y `route_pending` deja el `RoutedTurn` para cuando esos grafos no
+estén inyectados (ventas no existe todavía; FAQ y pedidos son opcionales).
 
 Las dependencias llegan por `partial` (DI manual): quien construye el grafo decide si
 el LLM es Bedrock o un doble, quién lee el contexto de cliente, con qué entitlements
@@ -29,6 +29,7 @@ from slices.supervisor.application.nodes import (
     load_context,
     resolve_pending,
     route_appointments,
+    route_faq,
     route_orders,
     route_pending,
     ruta_tras_decidir,
@@ -51,6 +52,7 @@ def build_supervisor_graph(
     allowed_bots: frozenset[AgentName],
     appointments_graph: SpecialistGraphPort,
     orders_graph: SpecialistGraphPort | None = None,
+    faq_graph: SpecialistGraphPort | None = None,
     draft_store: DraftStorePort | None = None,
     confirmer: ConfirmerPort | None = None,
 ) -> CompiledStateGraph[SupervisorState, Any, Any, Any]:  # pyrefly: ignore[bad-specialization]
@@ -64,6 +66,8 @@ def build_supervisor_graph(
         appointments_graph: Grafo de citas compilado que se invoca al enrutar.
         orders_graph: Grafo de pedidos compilado (Fase 3 del Paso 5); `None` deja los
             pedidos en `route_pending` (retrocompatible con composiciones previas).
+        faq_graph: Grafo de respuestas de conocimiento compilado (Paso 7); `None`
+            deja el FAQ en `route_pending` (retrocompatible con composiciones previas).
         draft_store: Store de drafts para el router `resolve_pending` (Fase 4);
             `None` desactiva el router (los drafts los resuelven las tools).
         confirmer: Resolución de drafts (affirm/deny/undo) de la composición;
@@ -81,6 +85,7 @@ def build_supervisor_graph(
         allowed_bots=allowed_bots,
         appointments_graph=appointments_graph,
         orders_graph=orders_graph,
+        faq_graph=faq_graph,
         draft_store=draft_store,
         confirmer=confirmer,
     )
@@ -92,6 +97,7 @@ def build_supervisor_graph(
     graph.add_node("greet", greet)
     graph.add_node("route_appointments", partial(route_appointments, deps=deps))
     graph.add_node("route_orders", partial(route_orders, deps=deps))
+    graph.add_node("route_faq", partial(route_faq, deps=deps))
     graph.add_node("route_pending", route_pending)
 
     graph.add_edge(START, "load_context")
@@ -109,6 +115,7 @@ def build_supervisor_graph(
             "greet": "greet",
             "route_appointments": "route_appointments",
             "route_orders": "route_orders",
+            "route_faq": "route_faq",
             "route_pending": "route_pending",
             "end": END,
         },
@@ -116,5 +123,6 @@ def build_supervisor_graph(
     graph.add_edge("greet", END)
     graph.add_edge("route_appointments", END)
     graph.add_edge("route_orders", END)
+    graph.add_edge("route_faq", END)
     graph.add_edge("route_pending", END)
     return graph.compile()
