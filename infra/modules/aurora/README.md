@@ -24,3 +24,22 @@ Aurora PostgreSQL **Serverless v2** con extensión `pgvector` para el RAG
 
 `cluster_endpoint` (endpoint de escritura para RAG), `cluster_id`,
 `master_secret_arn`.
+
+## Migración inicial (Paso 7)
+
+El esquema **no** lo aplica Terraform: se ejecuta a mano, una vez, contra el
+entorno correspondiente (idempotente, se puede re-ejecutar):
+
+```bash
+psql "$CONNINFO" -f infra/modules/aurora/migrations/001_knowledge.sql
+```
+
+- `$CONNINFO` usa el endpoint del stack (`terraform output aurora_endpoint`), el
+  usuario `chatbot_admin` y la contraseña del secreto `master_secret_arn`
+  (`aws secretsmanager get-secret-value ... --query SecretString`).
+- El cliente **tiene que correr desde dentro de la VPC** (el security group solo
+  acepta 5432 desde su propio CIDR): túnel, bastión o runner dentro de la red.
+  `TODO(verify)`: mecanismo definitivo de aplicación de migraciones (¿Aurora
+  Data API?, ¿migrador empaquetado en la Lambda?).
+- El adapter `adapters/aurora` asume este esquema (`knowledge_chunks` con
+  `vector(1536)` + tabla `documents`).

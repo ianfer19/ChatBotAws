@@ -9,8 +9,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Ajustes del sistema desde el entorno, con prefijo `CHATBOT_`.
 
-    Campos hoy (Paso 2): entorno de despliegue, nivel de log, modelo de Bedrock y
-    timeout de su cliente. Cada paso añade los suyos en vez de estandarizar
+    Campos: entorno de despliegue, nivel de log, modelo de Bedrock y timeout de su
+    cliente (Paso 2), y desde el Paso 7 los de RAG: modelo de embeddings y
+    conexión a Aurora. Los de RAG son opcionales a nivel de `Settings` (solo el
+    proceso que compone el RAG los exige) y el constructor del adapter falla
+    rápido si faltan. Cada paso añade los suyos en vez de estandarizar
     configuración que aún no existe.
 
     `bedrock_model_id` es **obligatorio**: sin modelo no hay conversación, así que el
@@ -32,6 +35,18 @@ class Settings(BaseSettings):
     # posterior rechaza el arranque si nadie lo define.
     bedrock_model_id: str = Field(default="")
     bedrock_timeout_seconds: int = Field(default=30, ge=1)
+    # Paso 7 (RAG): el adapter de embeddings exige `bedrock_embeddings_model_id`
+    # al construirse; `dimensions` debe coincidir con `vector(...)` de pgvector.
+    bedrock_embeddings_model_id: str = Field(default="")
+    bedrock_embeddings_dimensions: int = Field(default=1536, ge=1)
+    # Paso 7 (Aurora): `aurora_host`/`aurora_dbname`/`aurora_secret_arn` son
+    # obligatorios para el adapter; la contraseña nunca viaja por aquí, se lee
+    # del secreto de Secrets Manager (manage_master_user_password).
+    aurora_host: str = Field(default="")
+    aurora_port: int = Field(default=5432, ge=1, le=65535)
+    aurora_dbname: str = Field(default="")
+    aurora_username: str = Field(default="chatbot_admin")
+    aurora_secret_arn: str = Field(default="")
 
     @model_validator(mode="after")
     def _bedrock_model_id_es_obligatorio(self) -> Self:

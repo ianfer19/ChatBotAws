@@ -18,6 +18,9 @@ dependencies = [
     # Orquestación del agente: solo en `application/` de los slices (Paso 3).
     # Versión mínima fijada al cerrar el Paso 3 (grafo de citas) sobre 1.2.14.
     "langgraph>=1.2.14",
+    # PostgreSQL del conocimiento: adapters/aurora (RAG con pgvector, Paso 7).
+    # El binario trae el driver listo; sin esta dependencia no hay adapter Aurora.
+    "psycopg[binary]>=3.2",
 ]
 
 [project.optional-dependencies]
@@ -163,6 +166,8 @@ forbidden_modules = [
     "aws_lambda_powertools",
     "langgraph",
     "langgraph.*",
+    "psycopg",
+    "psycopg.*",
     "requests",
     "httpx",
     "slices.*.infrastructure",
