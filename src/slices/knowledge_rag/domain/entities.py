@@ -58,3 +58,19 @@ class ContentChunk(_KnowledgeBase):
     text: str = Field(min_length=1)
     position: int = Field(ge=0)
     metadata: dict[str, str] = Field(default_factory=dict)
+
+
+class StoredDocument(_KnowledgeBase):
+    """Estado de indexación de un documento ya ingerido (tabla `documents`).
+
+    Permite la re-ingesta idempotente: si el `content_hash` no cambió, el
+    documento se omite; si cambió, los `chunk_ids` anteriores se borran antes de
+    escribir los nuevos (reemplazo sin chunks huérfanos, RAG.md).
+
+    Args:
+        content_hash: SHA-256 del contenido indexado la última vez.
+        chunk_ids: Ids de los chunks que este documento tiene en el almacén.
+    """
+
+    content_hash: str = Field(min_length=1, max_length=64)
+    chunk_ids: tuple[str, ...] = ()
