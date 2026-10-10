@@ -6,6 +6,7 @@ El kernel declara QUÉ necesita el sistema; las implementaciones concretas viven
 
 from shared.ports.base import ClockPort, EventBusPort
 from shared.ports.draft import DraftStorePort
+from shared.ports.embeddings import EmbeddingsPort
 from shared.ports.llm import LLMMessage, LLMPort, LLMResult
 from shared.ports.memory import MemoryStorePort
 from shared.ports.vector import VectorHit, VectorRecord, VectorStorePort
@@ -13,6 +14,7 @@ from shared.ports.vector import VectorHit, VectorRecord, VectorStorePort
 __all__ = [
     "ClockPort",
     "DraftStorePort",
+    "EmbeddingsPort",
     "EventBusPort",
     "LLMMessage",
     "LLMPort",
