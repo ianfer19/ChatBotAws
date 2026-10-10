@@ -56,7 +56,7 @@ activa es [docs/ROADMAP.md](docs/ROADMAP.md)
 │
 ├── src/
 │   ├── shared/                # Kernel: errors, logging, config, context, contracts, ports
-│   ├── adapters/              # Adapters AWS transversales (bedrock, dynamodb, aurora, s3,
+│   ├── adapters/              # Adapters AWS transversales (bedrock, dynamodb, aurora, s3, sqs,
 │   │                          #   comprehend, agentcore, legacy_backend)
 │   └── slices/                # UNA carpeta por funcionalidad (vertical slicing)
 │       └── <slice>/           #   domain/ application/ infrastructure/ handler/ + AGENTS.md

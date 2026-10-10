@@ -4,8 +4,9 @@ Stack de producción: cifrado KMS con rotación, Aurora 1–2 ACU con protecció
 borrado y snapshot final obligatorio, retención de logs conforme al ADR 0007 y
 alarmas (observability → Paso 13). **Paso 6.**
 
-Módulos cableados: `kms`, `network`, `s3`, `dynamodb`, `aurora`, `iam`,
-`lambda` (`conversation_gateway`, `supervisor`) y `apigw` (`/webhook`).
+Módulos cableados: `kms`, `network`, `s3`, `dynamodb`, `sqs` (cola de eventos +
+DLQ del gateway, Paso 9), `aurora`, `iam`, `lambda` (`conversation_gateway`,
+`supervisor`) y `apigw` (`/webhook`).
 
 ## Uso
 

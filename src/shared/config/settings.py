@@ -12,10 +12,10 @@ class Settings(BaseSettings):
     Campos: entorno de despliegue, nivel de log, modelo de Bedrock y timeout de su
     cliente (Paso 2), desde el Paso 7 los de RAG: modelo de embeddings y
     conexión a Aurora, desde el Paso 8 el tamaño de la ventana de historial y desde
-    el Paso 9 los secretos del webhook Meta. Los de RAG y los del webhook son
-    opcionales a nivel de `Settings` (solo el proceso que los compone los exige) y su
-    constructor falla rápido si faltan. Cada paso añade los suyos en vez de
-    estandarizar configuración que aún no existe.
+    el Paso 9 los secretos del webhook Meta y la cola/tablas del gateway. Los de RAG,
+    los del webhook y los del gateway son opcionales a nivel de `Settings` (solo el
+    proceso que los compone los exige) y su constructor falla rápido si faltan. Cada
+    paso añade los suyos en vez de estandarizar configuración que aún no existe.
 
     `bedrock_model_id` es **obligatorio**: sin modelo no hay conversación, así que el
     proceso falla al arrancar en lugar de fallar en el primer mensaje (fail fast).
@@ -63,6 +63,14 @@ class Settings(BaseSettings):
     # (SSM SecureString/Secrets Manager como hace el legacy con los tokens de canal).
     webhook_verify_token: str = Field(default="")
     meta_app_secret: str = Field(default="")
+    # Paso 9 (gateway): cola SQS de entrada al consumer y las dos tablas de
+    # DynamoDB que el webhook usa en línea: mapeo canal→tenant (replica de
+    # `WA_CONFIG#`/`IG_CONFIG#`/`FB_CONFIG#`) y deduplicación de mensajes. Al estilo
+    # de `checkpoints_table`, opcionales a nivel de `Settings` (solo la Lambda del
+    # gateway los exige) y la composición falla rápido si faltan.
+    events_queue_url: str = Field(default="")
+    channel_mapping_table: str = Field(default="")
+    processed_messages_table: str = Field(default="")
 
     @model_validator(mode="after")
     def _bedrock_model_id_es_obligatorio(self) -> Self:

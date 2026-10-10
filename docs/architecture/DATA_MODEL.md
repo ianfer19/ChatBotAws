@@ -65,7 +65,8 @@ CREATE INDEX knowledge_chunks_embedding_idx
 |---|---|---|---|---|
 | `chatbot_conversations` | `ORG#<tenant_id>` | `CONV#<conversation_id>` y `MSG#<conversation_id>#<tsISO>` | atributo `ttl` en mensajes | Cabecera de conversación (canal, estado, `started_at`, `last_message_at`) y ventana reciente de mensajes |
 | `chatbot_customer_context` | `ORG#<tenant_id>` | `CUSTOMER#<customer_id>` | `ttl` en datos volátiles | Resumen de contexto que la tool `get_customer_context` devuelve por turno |
-| `chatbot_channel_mapping` | `WA_CONFIG#<phone_number_id>` (o `IG_CONFIG#…` / `FB_CONFIG#…`) | `ORG#<tenant_id>` | no expira | Réplica del mapeo de canal del legacy; decisión D5 |
+| `chatbot_channel_mapping` | `WA_CONFIG#<phone_number_id>` (o `IG_CONFIG#…` / `FB_CONFIG#…`) | `METADATA` (ítem con `store_id`, `tenant_id` como respaldo) | no expira | Réplica del mapeo de canal con la misma clave del legacy (`orchestrator.py:97`); decisión D5 |
+| `chatbot_processed_messages` | `MSG_PROCESSED#<message_id>` | `DEDUP#<tenant_id>` | `ttl` a 24 h | Deduplicación del webhook (Paso 9): reclamar con `attribute_not_exists(PK)` y liberar con `delete` si el encolado falla; clave por tenant para no cruzar comercios |
 | `chatbot_abuse_limits` | `ORG#<tenant_id>` | `LIMITS#<customer_id>` | `ttl` | Contadores por ventana, `blocked_until`, motivo |
 | `chatbot_tool_audit` | `ORG#<tenant_id>` | `TOOL#<tsISO>#<tool_name>` | `ttl` según retención | Quién llamó qué tool, con qué argumentos y resultado |
 | `chatbot_checkpoints` | `ORG#<tenant_id>` | `CONV#<conversation_id>` | `ttl` opcional | Checkpoint más reciente de LangGraph por conversación (Paso 8): payload JSON opaco (`MemoryStorePort`), que hace que la conversación sobreviva a invocaciones distintas |

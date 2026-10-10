@@ -9,6 +9,7 @@ from shared.contracts import (
     CustomerContext,
     InboundMessage,
     OutboundMessage,
+    QueuedMessage,
     RoutedTurn,
 )
 
@@ -105,3 +106,64 @@ def test_customer_context_round_trip_sin_verdad_operacional() -> None:
         "tags",
         "last_seen_at",
     }
+
+
+def test_queued_message_round_trip_con_media_y_payload() -> None:
+    """La cola conserva lo que InboundMessage no trae: tipo, media y payload crudo."""
+    queued = QueuedMessage(
+        **_inbound(text=None).model_dump(),
+        message_type="image",
+        sender_name="Ana",
+        media_id="MEDIA_1",
+        media_type="image",
+        raw_payload='{"object":"whatsapp_business_account"}',
+    )
+    payload = queued.model_dump(mode="json")
+    assert QueuedMessage.model_validate(payload) == queued
+    assert payload["media_id"] == "MEDIA_1"
+    assert payload["raw_payload"].startswith("{")
+
+
+def test_queued_message_sigue_siendo_inbound_para_el_supervisor() -> None:
+    """El consumer entrega la cola al pipeline como InboundMessage compatible."""
+    queued = QueuedMessage(
+        **_inbound().model_dump(),
+        raw_payload='{"object":"page"}',
+    )
+    assert isinstance(queued, InboundMessage)
+    solo_inbound = queued.model_dump(
+        mode="json",
+        exclude={
+            "message_type",
+            "sender_name",
+            "media_id",
+            "media_type",
+            "media_url",
+            "raw_payload",
+        },
+    )
+    reconstruido = InboundMessage.model_validate(solo_inbound)
+    assert (reconstruido.tenant_id, reconstruido.message_id) == (
+        queued.tenant_id,
+        queued.message_id,
+    )
+
+
+def test_queued_message_exige_raw_payload() -> None:
+    """Sin payload crudo no hay fila de mensajes que persistir: contrato lo rechaza."""
+    data = _inbound().model_dump(mode="json")
+    with pytest.raises(PydanticValidationError):
+        QueuedMessage.model_validate(data)
+    with pytest.raises(PydanticValidationError):
+        QueuedMessage.model_validate({**data, "raw_payload": ""})
+
+
+def test_queued_message_rechaza_campos_desconocidos() -> None:
+    """Igual que el resto de contratos: lo que no está en el esquema no se encola."""
+    data = {
+        **_inbound().model_dump(mode="json"),
+        "raw_payload": "{}",
+        "campos_extra": "no",
+    }
+    with pytest.raises(PydanticValidationError):
+        QueuedMessage.model_validate(data)

@@ -4,8 +4,9 @@ Stack de pruebas con un comercio real piloto: misma forma que `dev` (Aurora
 0.5–1 ACU, sin protección de borrado) pero con datos sembrados y cuentas de
 Meta no productivas. **Paso 6.**
 
-Módulos cableados: `kms`, `network`, `s3`, `dynamodb`, `aurora`, `iam`,
-`lambda` (`conversation_gateway`, `supervisor`) y `apigw` (`/webhook`).
+Módulos cableados: `kms`, `network`, `s3`, `dynamodb`, `sqs` (cola de eventos +
+DLQ del gateway, Paso 9), `aurora`, `iam`, `lambda` (`conversation_gateway`,
+`supervisor`) y `apigw` (`/webhook`).
 
 ## Uso
 

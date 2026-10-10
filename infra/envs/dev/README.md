@@ -4,8 +4,9 @@ Stack de desarrollo: datos sintéticos, cuentas de prueba de Meta y el menor
 costo posible (Aurora 0.5–1 ACU, sin protección de borrado, snapshot final
 omitido). **Paso 6.**
 
-Módulos cableados: `kms`, `network`, `s3`, `dynamodb`, `aurora`, `iam`,
-`lambda` (`conversation_gateway`, `supervisor`) y `apigw` (`/webhook`).
+Módulos cableados: `kms`, `network`, `s3`, `dynamodb`, `sqs` (cola de eventos +
+DLQ del gateway, Paso 9), `aurora`, `iam`, `lambda` (`conversation_gateway`,
+`supervisor`) y `apigw` (`/webhook`).
 
 ## Uso
 

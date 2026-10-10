@@ -1,4 +1,4 @@
-"""Dobles en memoria del gateway: resolución de tenant, dedup y canal (previo a la infraestructura).
+"""Dobles en memoria del gateway: tenant, dedup, canal y bus (previo a la infraestructura).
 
 Mismo papel que `orders/infrastructure/in_memory.py`: probar el flujo del webhook sin
 DynamoDB, SSM, SQS ni llamadas reales a Meta (ROADMAP §2.4). El aislamiento por tenant
@@ -91,6 +91,56 @@ class InMemoryDeduplication:
             return False
         self._vistos.add(clave)
         return True
+
+    def release(self, *, tenant_id: str, message_id: str) -> None:
+        """Borra el registro (rollback cuando el encolado posterior falla).
+
+        Args:
+            tenant_id: Comercio resuelto.
+            message_id: Id del mensaje en el canal.
+
+        Raises:
+            ValidationError: Si falta `tenant_id` o `message_id`.
+        """
+        if not tenant_id or not message_id:
+            raise ValidationError("faltan tenant_id o message_id en la liberación de dedup")
+        self._vistos.discard((tenant_id, message_id))
+
+
+class InMemoryEventBus:
+    """`EventBusPort` de tests: captura lo publicado y puede fingir un fallo.
+
+    Example:
+        >>> from slices.conversation_gateway.infrastructure.in_memory import InMemoryEventBus
+        >>> bus = InMemoryEventBus()
+        >>> bus.publish("inbound.message", {"tenant_id": "Sede_Elite_01"})
+        >>> bus.published[0][0]
+        'inbound.message'
+    """
+
+    def __init__(self, *, fail_with: Exception | None = None) -> None:
+        """Prepara el doble, opcionalmente con una falla simulada de transporte.
+
+        Args:
+            fail_with: Excepción que `publish` debe lanzar (para probar el rollback
+                de la deduplicación); `None` = publicación correcta.
+        """
+        self.published: list[tuple[str, dict[str, object]]] = []
+        self._fail_with = fail_with
+
+    def publish(self, event_name: str, payload: Mapping[str, object]) -> None:
+        """Captura el evento en `published` o lanza la falla configurada.
+
+        Args:
+            event_name: Nombre estable del evento.
+            payload: Datos ya validados contra su contrato.
+
+        Raises:
+            Exception: La falla inyectada en el constructor (simula SQS caído).
+        """
+        if self._fail_with is not None:
+            raise self._fail_with
+        self.published.append((event_name, dict(payload)))
 
 
 class InMemoryChannel:

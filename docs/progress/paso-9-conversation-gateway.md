@@ -5,8 +5,8 @@
 > sin releer el código. Criterio de cierre del paso:
 > [ROADMAP §1 fila 9](../ROADMAP.md). Decisiones de alcance: este mismo archivo.
 >
-> **Estado global: PASO 9 EN CURSO — Fase 3 COMPLETA (3 de 7). Siguiente: Fase 4
-> (tenant + dedup + encolado + módulo SQS/IAM en Terraform).**
+> **Estado global: PASO 9 EN CURSO — Fase 4 COMPLETA (4 de 7). Siguiente: Fase 5
+> (credenciales SSM + endpoint admin + `verify_credentials`).**
 
 ## Decisiones cerradas con el usuario (2026-10-10)
 
@@ -48,7 +48,7 @@
 | 1 | Domain + `ChannelPort` + errores + dobles en memoria | `[x]` |
 | 2 | Webhook: `GET hub.challenge` + `POST` con firma HMAC | `[x]` |
 | 3 | Normalización: parsers de los 3 canales → `ChannelMessage` | `[x]` |
-| 4 | Tenant + dedup + encolado + módulo SQS/IAM (Terraform) | `[ ]` |
+| 4 | Tenant + dedup + encolado + módulo SQS/IAM (Terraform) | `[x]` |
 | 5 | Credenciales (SSM) + endpoint admin + `verify_credentials` | `[ ]` |
 | 6 | Consumer (persistencia + supervisor) + envío de respuestas + zips | `[ ]` |
 | 7 | Cierre: AGENTS, ROADMAP, checklist, batería final | `[ ]` |
@@ -130,12 +130,56 @@
   sin remitente, id/timestamp inválidos) y despacho por registro.
 - [x] Batería verde + commit `feat(paso-9): parsers de los 3 canales a channelmessage`.
 
+## Fase 4 — tenant + dedup + encolado  (hecha)
+
+- [x] `shared/contracts/messages.py`: `QueuedMessage(InboundMessage)` con
+  `message_type`/`sender_name`/`media_*` y `raw_payload` (cuerpo firmado exacto,
+  máx. 200 000); exportado en `shared/contracts/__init__.py`.
+- [x] Settings: `CHATBOT_EVENTS_QUEUE_URL`, `CHATBOT_CHANNEL_MAPPING_TABLE`,
+  `CHATBOT_PROCESSED_MESSAGES_TABLE` (opcionales en `Settings`; el handler los
+  exige al componer, **antes** de crear boto3).
+- [x] `domain/ports.py`: `NormalizerPort` (vista de entrada de `ChannelPort`) +
+  `DeduplicationPort.release` (rollback si el encolado falla).
+- [x] `application/webhook.py`: flujo `firma → parsear → detect_channel →
+  normalize → resolver tenant (2 pasos, sin encolado parcial) → dedup +
+  encolar`; si el publish falla, `release` de la dedup para no perder el
+  reintento de Meta; respuestas `EVENT_RECEIVED`/`EVENT_IGNORED`/
+  `EVENT_TENANT_UNKNOWN`; evento duplicado íntegro → `DuplicateMessageError`.
+- [x] `infrastructure/dynamodb.py`: `DynamoChannelMapping` (claves exactas del
+  legacy `WA_CONFIG#<id>|METADATA`, fallback `store_id`→`tenant_id`,
+  `ConsistentRead`) + `DynamoDeduplication` (`MSG_PROCESSED#<id>|DEDUP#<tenant>`,
+  `attribute_not_exists(PK)`, TTL 24 h, `release`); errores botocore →
+  `ToolError`/`ToolTimeoutError` (condicional → duplicado, no error).
+- [x] `adapters/sqs/`: `SQSEventBus(EventBusPort)` — cuerpo `{event, payload}`,
+  timeout y errores traducidos con `event_name` en `details` (nunca el payload).
+- [x] `handler/lambda_webhook.py`: composición con los 5 settings (fail fast
+  antes de crear AWS) y `DuplicateMessageError → 200 EVENT_DUPLICATED`;
+  `receptor` inyectable para tests sin AWS.
+- [x] Terraform: módulo `infra/modules/sqs/` (cola + DLQ + redrive + SSE/KMS,
+  `TODO(verify)` de visibilidad vs. timeout del consumer) y en los 3 entornos:
+  tabla `chatbot_processed_messages`, `module "sqs"`, política least-privilege
+  de `conversation_gateway` (SendMessage + GetItem del mapeo + Put/Delete de
+  dedup) y las 3 env vars de la Lambda; `terraform validate` en verde en los 3.
+- [x] Docs: `DATA_MODEL.md` (fila del mapeo corregida a SK `METADATA`/`store_id`
+  y nueva fila `chatbot_processed_messages`), `AGENTS.md` del slice (reglas
+  2/3/6, tabla y errores) y de `adapters/` (fila `sqs/`), READMEs de
+  `infra/modules/sqs` y de los 3 entornos.
+- [x] Tests: `test_conversation_gateway_webhook.py` (25, +handler con receptor
+  inyectado, duplicado y faltantes de cola/tablas), nuevos
+  `test_conversation_gateway_flow.py` (9: feliz, duplicado, parcial, sin mapeo,
+  envelope sin encolar, rollback del release, correlación por mensaje) +
+  `test_conversation_gateway_dynamodb.py` (15: claves/prefijos/fallback/TTL/
+  errores/conformance) + `test_adapters_sqs_event_bus.py` (9) +
+  `test_shared_contracts.py` (4 de `QueuedMessage`) — **en verde**.
+- [x] Batería verde + commit `feat(paso-9): tenant dedup y encolado del gateway`.
+
 ## Criterios de hecho del ROADMAP (§1 fila 9)
 
 - [ ] **Prueba con tráfico real de los 3 canales** → **pendiente de entorno dev**
   (los endpoints de credenciales llegan en la Fase 5; hasta entonces no hay con qué).
-- [ ] **Deduplicación** (Fase 4, con test de duplicado → 200 silencioso).
-- [ ] **Aislamiento por tenant** (Fases 4 y 6, con test).
+- [x] **Deduplicación** (Fase 4, con test de duplicado → 200 silencioso).
+- [ ] **Aislamiento por tenant** (Fase 6; la dedup ya es por tenant y hay test
+  de no-fuga entre comercios en la Fase 1).
 - [ ] Webhook completo tras `ChannelPort`: `hub.challenge`,
   `X-Hub-Signature-256`, resolución de `tenant_id`, SQS (Fases 2–4).
 - [ ] Batería completa en verde al cierre de la Fase 7.
@@ -147,5 +191,7 @@
   canal→tenant desde el legacy; conmutación por número/WABA
   (INTEGRATION_WITH_LEGACY §3); tamaños/timeout de la cola y rate limiting contra
   Meta; empaquetado de los zips de Lambda.
-- `TODO(decision)`: TTL del dedup (24 h como legacy vs. menor); si el pipeline nuevo
-  merece un ADR propio (se valora en la Fase 7: hoy cubre ADR 0006/0009/0003).
+- `TODO(decision)`: si el pipeline nuevo merece un ADR propio (se valora en la Fase 7:
+  hoy cubre ADR 0006/0009/0003); respuesta fija al usuario cuando no hay mapeo de
+  tenant (imposible sin credenciales del canal → Fase 5). El TTL del dedup quedó
+  cerrado en 24 h (heredado del legacy).

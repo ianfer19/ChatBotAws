@@ -1,9 +1,9 @@
 """Composition root del webhook Meta: evento de API Gateway → caso de uso → respuesta.
 
-Único punto que conoce el formato del evento (payload 2.0 de API Gateway HTTP API);
-el caso de uso solo ve argumentos planos y los errores tipados se traducen aquí a
-respuestas HTTP sin filtrar trazas (shared/AGENTS: los handlers traducen, jamás el
-stack trace al usuario final).
+Único punto que conoce el formato del evento (payload 2.0 de API Gateway HTTP API) y
+la composición real (adaptadores de DynamoDB y SQS); el caso de uso solo ve puertos.
+Los errores tipados se traducen aquí a respuestas HTTP sin filtrar trazas
+(shared/AGENTS: los handlers traducen, jamás el stack trace al usuario final).
 """
 
 import base64
@@ -11,26 +11,41 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-from shared.config import load_settings
-from shared.errors import AppError
+from adapters.sqs import SQSEventBus
+from shared.config import Settings, load_settings
+from shared.errors import AppError, ValidationError
 from shared.logging import configure_logging, get_logger
 from slices.conversation_gateway.application.webhook import WebhookReceiver, WebhookResponse
+from slices.conversation_gateway.domain.errors import DuplicateMessageError
+from slices.conversation_gateway.infrastructure.channels.meta import MetaChannel
+from slices.conversation_gateway.infrastructure.dynamodb import (
+    DynamoChannelMapping,
+    DynamoDeduplication,
+)
 
 logger = get_logger(__name__)
 
 _FIRMA = "x-hub-signature-256"
 
 
-def main(event: dict[str, Any], _context: Any) -> dict[str, Any]:
+def main(
+    event: dict[str, Any],
+    _context: Any,
+    receptor: WebhookReceiver | None = None,
+) -> dict[str, Any]:
     """Entrada Lambda de la webhook Meta (GET verificación / POST eventos).
 
     Args:
         event: Payload 2.0 de API Gateway HTTP API (`requestContext.http.method`,
             `headers`, `queryStringParameters`, `rawBody`).
         _context: Contexto de Lambda (no usado: la composición es síncrona).
+        receptor: Caso de uso ya compuesto; `None` (producción) compone los
+            adaptadores reales a partir del entorno. Los tests lo inyectan para
+            no crear clientes AWS.
 
     Returns:
-        Respuesta de API Gateway: `statusCode`, `headers` y `body`.
+        Respuesta de API Gateway: `statusCode`, `headers` y `body`. Los eventos
+        duplicados responden `200 EVENT_DUPLICATED` (Meta no debe reintentar).
 
     Raises:
         pydantic.ValidationError: Si la configuración del webhook falta o es
@@ -38,17 +53,59 @@ def main(event: dict[str, Any], _context: Any) -> dict[str, Any]:
     """
     settings = load_settings()
     configure_logging(settings.log_level)
-    receiver = WebhookReceiver(
-        verify_token=settings.webhook_verify_token,
-        app_secret=settings.meta_app_secret,
-    )
+    receptor_final = receptor if receptor is not None else _construir_receptor(settings)
     try:
-        respuesta = _despachar(event, receiver)
+        respuesta = _despachar(event, receptor_final)
+    except DuplicateMessageError:
+        # Acuse silencioso: todos los mensajes ya estaban encolados (idempotencia).
+        logger.info("webhook.duplicate_event")
+        respuesta = WebhookResponse(status=200, body="EVENT_DUPLICATED")
     except AppError as exc:
         # Solo el código estable, nunca `details` ni traza (403 «sin detalle»).
         logger.warning("webhook.rejected", extra={"error": exc.code})
         respuesta = WebhookResponse(status=exc.http_status, body=json.dumps({"error": exc.code}))
     return _respuesta_http(respuesta)
+
+
+def _construir_receptor(settings: Settings) -> WebhookReceiver:
+    """Compone el receptor con los adaptadores reales (DynamoDB + SQS).
+
+    Valida **todos** los ajustes antes de crear un solo cliente AWS: si algo falta,
+    la Lambda falla al arrancar con `ValidationError` y sin tocar la red.
+
+    Args:
+        settings: Ajustes ya cargados del entorno.
+
+    Returns:
+        El receptor listo para atender GET y POST.
+
+    Raises:
+        ValidationError: Si faltan secretos, la cola o las tablas del gateway.
+    """
+    faltantes = [
+        nombre
+        for nombre, valor in (
+            ("webhook_verify_token", settings.webhook_verify_token),
+            ("meta_app_secret", settings.meta_app_secret),
+            ("events_queue_url", settings.events_queue_url),
+            ("channel_mapping_table", settings.channel_mapping_table),
+            ("processed_messages_table", settings.processed_messages_table),
+        )
+        if not valor
+    ]
+    if faltantes:
+        raise ValidationError(
+            "webhook incompleto: faltan ajustes del paso 9",
+            details={"faltantes": ",".join(faltantes)},
+        )
+    return WebhookReceiver(
+        verify_token=settings.webhook_verify_token,
+        app_secret=settings.meta_app_secret,
+        normalizer=MetaChannel(),
+        tenants=DynamoChannelMapping(table_name=settings.channel_mapping_table),
+        dedup=DynamoDeduplication(table_name=settings.processed_messages_table),
+        bus=SQSEventBus(queue_url=settings.events_queue_url),
+    )
 
 
 def _despachar(event: Mapping[str, Any], receiver: WebhookReceiver) -> WebhookResponse:

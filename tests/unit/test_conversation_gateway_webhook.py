@@ -1,4 +1,4 @@
-"""Tests del webhook Meta (Fase 2): verificación GET, firma POST y handler Lambda."""
+"""Tests del webhook Meta: verificación GET, firma POST, encolado y handler Lambda."""
 
 import base64
 import hashlib
@@ -12,6 +12,12 @@ from shared.errors import ValidationError
 from slices.conversation_gateway.application.webhook import WebhookReceiver
 from slices.conversation_gateway.domain.errors import InvalidSignatureError
 from slices.conversation_gateway.handler import lambda_webhook
+from slices.conversation_gateway.infrastructure.channels.meta import MetaChannel
+from slices.conversation_gateway.infrastructure.in_memory import (
+    InMemoryDeduplication,
+    InMemoryEventBus,
+    InMemoryTenantResolver,
+)
 
 _TOKEN = "token-de-verificacion"
 _SECRETO = "app-secreta-del-test"
@@ -23,9 +29,30 @@ def _firma(cuerpo: bytes = _PAYLOAD) -> str:
     return "sha256=" + hmac.new(_SECRETO.encode(), cuerpo, hashlib.sha256).hexdigest()
 
 
-def _receptor() -> WebhookReceiver:
-    """Receiver de prueba con los secretos fijos."""
-    return WebhookReceiver(verify_token=_TOKEN, app_secret=_SECRETO)
+def _receptor(
+    *,
+    tenants: InMemoryTenantResolver | None = None,
+    dedup: InMemoryDeduplication | None = None,
+    bus: InMemoryEventBus | None = None,
+) -> WebhookReceiver:
+    """Receiver de prueba con secretos fijos y dobles en memoria por defecto.
+
+    Args:
+        tenants: Doble de resolución de tenant (vacío = nadie resuelto).
+        dedup: Doble de deduplicación (compartido entre intentos si se repite).
+        bus: Doble de bus de eventos (captura lo encolado).
+
+    Returns:
+        El receptor listo para `receive`/`verify_subscription`.
+    """
+    return WebhookReceiver(
+        verify_token=_TOKEN,
+        app_secret=_SECRETO,
+        normalizer=MetaChannel(),
+        tenants=tenants if tenants is not None else InMemoryTenantResolver(),
+        dedup=dedup if dedup is not None else InMemoryDeduplication(),
+        bus=bus if bus is not None else InMemoryEventBus(),
+    )
 
 
 def _entorno_webhook(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -37,6 +64,9 @@ def _entorno_webhook(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("CHATBOT_BEDROCK_MODEL_ID", "modelo-de-prueba")
     monkeypatch.setenv("CHATBOT_WEBHOOK_VERIFY_TOKEN", _TOKEN)
     monkeypatch.setenv("CHATBOT_META_APP_SECRET", _SECRETO)
+    monkeypatch.setenv("CHATBOT_EVENTS_QUEUE_URL", "https://sqs.test/cola")
+    monkeypatch.setenv("CHATBOT_CHANNEL_MAPPING_TABLE", "chatbot_channel_mapping_dev")
+    monkeypatch.setenv("CHATBOT_PROCESSED_MESSAGES_TABLE", "chatbot_processed_messages_dev")
 
 
 def _evento_get(
@@ -81,9 +111,23 @@ def _evento_post(
 def test_receptor_exige_los_secretos() -> None:
     """Sin verify_token o sin app_secret la Lambda no debe arrancar (fail fast)."""
     with pytest.raises(ValidationError):
-        WebhookReceiver(verify_token="", app_secret=_SECRETO)
+        WebhookReceiver(
+            verify_token="",
+            app_secret=_SECRETO,
+            normalizer=MetaChannel(),
+            tenants=InMemoryTenantResolver(),
+            dedup=InMemoryDeduplication(),
+            bus=InMemoryEventBus(),
+        )
     with pytest.raises(ValidationError):
-        WebhookReceiver(verify_token=_TOKEN, app_secret="")
+        WebhookReceiver(
+            verify_token=_TOKEN,
+            app_secret="",
+            normalizer=MetaChannel(),
+            tenants=InMemoryTenantResolver(),
+            dedup=InMemoryDeduplication(),
+            bus=InMemoryEventBus(),
+        )
 
 
 def test_verificacion_correcta_devuelve_el_challenge() -> None:
@@ -150,11 +194,20 @@ def test_post_firmado_con_cuerpo_no_objeto_es_validation_error(cuerpo: bytes) ->
 
 # --- handler main (API Gateway → respuesta) ----------------------------------------------
 
+_MENSAJE_WA = (
+    b'{"object":"whatsapp_business_account","entry":[{"changes":[{"value":'
+    b'{"metadata":{"phone_number_id":"1000","display_phone_number":"5730012345678"},'
+    b'"messages":[{"from":"573001112222","id":"wamid.1","timestamp":"1712345678",'
+    b'"type":"text","text":{"body":"hola"}}]}}]}]}'
+)
+# Envelope mínimo con un mensaje real: los handlers lo reciben ya inyectados con
+# dobles para no crear clientes AWS (la composición real se prueba en integración).
+
 
 def test_handler_get_devuelve_el_challenge_en_texto(monkeypatch: pytest.MonkeyPatch) -> None:
     """El GET de verificación responde 200 con el challenge en text/plain."""
     _entorno_webhook(monkeypatch)
-    respuesta = lambda_webhook.main(_evento_get(), None)
+    respuesta = lambda_webhook.main(_evento_get(), None, receptor=_receptor())
     assert respuesta["statusCode"] == 200
     assert respuesta["body"] == "98765"
     assert respuesta["headers"]["content-type"].startswith("text/plain")
@@ -172,7 +225,9 @@ def test_handler_get_invalido_es_403_json(
 ) -> None:
     """El 403 del caso de uso llega como JSON con el código, sin trazas."""
     _entorno_webhook(monkeypatch)
-    respuesta = lambda_webhook.main(_evento_get(mode=mode, token=token, challenge=challenge), None)
+    respuesta = lambda_webhook.main(
+        _evento_get(mode=mode, token=token, challenge=challenge), None, receptor=_receptor()
+    )
     assert respuesta["statusCode"] == 403
     assert json.loads(respuesta["body"]) == {"error": "forbidden"}
     assert respuesta["headers"]["content-type"].startswith("application/json")
@@ -181,15 +236,28 @@ def test_handler_get_invalido_es_403_json(
 def test_handler_post_con_firma_valida_es_200(monkeypatch: pytest.MonkeyPatch) -> None:
     """El POST aceptado responde 200 EVENT_RECEIVED (encolado: Fase 4)."""
     _entorno_webhook(monkeypatch)
-    respuesta = lambda_webhook.main(_evento_post(), None)
+    respuesta = lambda_webhook.main(_evento_post(), None, receptor=_receptor())
     assert (respuesta["statusCode"], respuesta["body"]) == (200, "EVENT_RECEIVED")
+
+
+def test_handler_post_duplicado_es_200_event_duplicated(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Un evento que Meta reenvía responde 200 acusándolo, sin volver a encolar."""
+    _entorno_webhook(monkeypatch)
+    resolver = InMemoryTenantResolver({("whatsapp", "1000"): "Sede_Elite_01"})
+    dedup = InMemoryDeduplication()
+    dedup.register_once(tenant_id="Sede_Elite_01", message_id="wamid.1")
+    bus = InMemoryEventBus()
+    receptor = _receptor(tenants=resolver, dedup=dedup, bus=bus)
+    respuesta = lambda_webhook.main(_evento_post(cuerpo=_MENSAJE_WA), None, receptor=receptor)
+    assert (respuesta["statusCode"], respuesta["body"]) == (200, "EVENT_DUPLICATED")
+    assert bus.published == []
 
 
 def test_handler_post_con_firma_invalida_es_403(monkeypatch: pytest.MonkeyPatch) -> None:
     """Firma ausente o incorrecta → 403 con el código estable, jamás el detalle."""
     _entorno_webhook(monkeypatch)
     for evento in (_evento_post(firma=None), _evento_post(firma="sha256=ff")):
-        respuesta = lambda_webhook.main(evento, None)
+        respuesta = lambda_webhook.main(evento, None, receptor=_receptor())
         assert respuesta["statusCode"] == 403
         assert json.loads(respuesta["body"]) == {"error": "invalid_signature"}
 
@@ -200,22 +268,31 @@ def test_handler_acepta_cuerpo_base64(monkeypatch: pytest.MonkeyPatch) -> None:
     evento = _evento_post()
     evento["rawBody"] = base64.b64encode(_PAYLOAD).decode("ascii")
     evento["isBase64Encoded"] = True
-    respuesta = lambda_webhook.main(evento, None)
+    respuesta = lambda_webhook.main(evento, None, receptor=_receptor())
     assert (respuesta["statusCode"], respuesta["body"]) == (200, "EVENT_RECEIVED")
 
 
 def test_handler_metodo_no_soportado_es_405(monkeypatch: pytest.MonkeyPatch) -> None:
     """Solo GET y POST: cualquier otro método se rechaza sin tocar la firma."""
     _entorno_webhook(monkeypatch)
-    respuesta = lambda_webhook.main(_evento_post(metodo="PUT"), None)
+    respuesta = lambda_webhook.main(_evento_post(metodo="PUT"), None, receptor=_receptor())
     assert respuesta["statusCode"] == 405
 
 
 def test_handler_falla_al_arrancar_sin_secretos(monkeypatch: pytest.MonkeyPatch) -> None:
     """Sin secretos en el entorno la Lambda falla al construir (fail fast, no 403)."""
-    monkeypatch.setenv("CHATBOT_BEDROCK_MODEL_ID", "modelo-de-prueba")
+    _entorno_webhook(monkeypatch)
     monkeypatch.delenv("CHATBOT_WEBHOOK_VERIFY_TOKEN", raising=False)
     monkeypatch.delenv("CHATBOT_META_APP_SECRET", raising=False)
+    with pytest.raises(ValidationError):
+        lambda_webhook.main(_evento_get(), None)
+
+
+def test_handler_falla_al_arrancar_sin_cola_o_tablas(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Sin la cola o las tablas del gateway no hay composición posible (fail fast)."""
+    _entorno_webhook(monkeypatch)
+    monkeypatch.delenv("CHATBOT_EVENTS_QUEUE_URL", raising=False)
+    monkeypatch.delenv("CHATBOT_PROCESSED_MESSAGES_TABLE", raising=False)
     with pytest.raises(ValidationError):
         lambda_webhook.main(_evento_get(), None)
 
@@ -223,7 +300,7 @@ def test_handler_falla_al_arrancar_sin_secretos(monkeypatch: pytest.MonkeyPatch)
 def test_handler_no_filtra_trazas_en_la_respuesta(monkeypatch: pytest.MonkeyPatch) -> None:
     """Ningún cuerpo de error contiene texto de excepción ni detalles internos."""
     _entorno_webhook(monkeypatch)
-    respuesta = lambda_webhook.main(_evento_post(firma="sha256=ff"), None)
+    respuesta = lambda_webhook.main(_evento_post(firma="sha256=ff"), None, receptor=_receptor())
     cuerpo = respuesta["body"].lower()
     for prohibido in ("traceback", "exception", "app_secret", _SECRETO):
         assert prohibido not in cuerpo

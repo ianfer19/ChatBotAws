@@ -26,7 +26,7 @@ el dominio no importa nada externo (salvo stdlib, pydantic y `shared`).
 
 | Slice | Responsabilidad | Paso | Estado |
 |---|---|---|---|
-| `conversation_gateway` | Entrada de mensajes Meta (3 canales), verificación/firma, `correlation_id`, resolución de tenant, respuesta al canal | 9 | definido |
+| `conversation_gateway` | Entrada de mensajes Meta (3 canales), verificación/firma, `correlation_id`, resolución de tenant, respuesta al canal | 9 | en curso |
 | `supervisor` | Router de intención: saludo/smalltalk (ruta propia), ventas, citas, pedidos, FAQ | 4 | implementado |
 | `customer_context` | Contexto del cliente por turno (`get_customer_context`) y su actualización | 4 | implementado |
 | `tenant_prompts` | Prompts por tenant desde Prompt Management con fallback y rollback | fuera de ruta | definido |

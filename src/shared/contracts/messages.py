@@ -39,6 +39,30 @@ class InboundMessage(_ContractBase):
     text: str | None = Field(default=None, max_length=_MAX_TEXT)
 
 
+class QueuedMessage(InboundMessage):
+    """Mensaje del gateway ya encolado hacia el consumer (SQS, Paso 9).
+
+    Extiende `InboundMessage` con lo que solo necesitan la cola y la persistencia
+    de la tabla de mensajes (estructura replicada del legacy, decisión del Paso 9):
+    la clase del mensaje, el nombre del remitente, los atributos de media (solo
+    atributos; la descarga es `media_handling`, ROADMAP §4) y el payload crudo del
+    webhook. El consumer la entrega al supervisor como `InboundMessage` (subclase
+    compatible) y guarda el resto en la tabla de mensajes.
+
+    `message_type` es `str` y no el `MessageType` de `shared.ports.channel` para no
+    crear un ciclo `contracts ↔ ports` (`ports.channel` ya importa `contracts`).
+    """
+
+    message_type: str = Field(default="unknown", max_length=32)
+    sender_name: str | None = Field(default=None, max_length=120)
+    media_id: str | None = Field(default=None, max_length=128)
+    media_type: str | None = Field(default=None, max_length=32)
+    media_url: str | None = Field(default=None, max_length=1024)
+    # Cuerpo exacto que firmó Meta (bytes ya validados por el webhook). El límite
+    # deja margen para el resto del cuerpo del mensaje SQS (256 KiB).
+    raw_payload: str = Field(min_length=1, max_length=200_000)
+
+
 class OutboundMessage(_ContractBase):
     """Respuesta del pipeline hacia el canal (entrada al `ChannelPort` de salida)."""
 

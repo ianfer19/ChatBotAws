@@ -4,6 +4,7 @@ from shared.contracts.messages import (
     CustomerContext,
     InboundMessage,
     OutboundMessage,
+    QueuedMessage,
     RoutedTurn,
 )
 from shared.contracts.pending import (
@@ -33,6 +34,7 @@ __all__ = [
     "OutboundMessage",
     "PendingDraft",
     "PolicyDecision",
+    "QueuedMessage",
     "RoutedTurn",
     "SourceType",
     "compute_payload_hash",

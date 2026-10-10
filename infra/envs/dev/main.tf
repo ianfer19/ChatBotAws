@@ -21,15 +21,16 @@ locals {
   # nombres de los atributos; los valores llevan los prefijos `ORG#`, `CONV#`…
   # definidos en DATA_MODEL. `ttl` marca las tablas que expiran.
   tables = {
-    chatbot_conversations    = { pk = "PK", sk = "SK", ttl = "ttl" }
-    chatbot_customer_context = { pk = "PK", sk = "SK", ttl = "ttl" }
-    chatbot_channel_mapping  = { pk = "PK", sk = "SK" }
-    chatbot_abuse_limits     = { pk = "PK", sk = "SK", ttl = "ttl" }
-    chatbot_tool_audit       = { pk = "PK", sk = "SK", ttl = "ttl" }
-    pending_actions          = { pk = "PK", sk = "SK", ttl = "ttl" }
-    order_locks              = { pk = "PK", sk = "SK", ttl = "ttl" }
-    appointment_locks        = { pk = "PK", sk = "SK", ttl = "ttl" }
-    chatbot_checkpoints      = { pk = "PK", sk = "SK", ttl = "ttl" }
+    chatbot_conversations      = { pk = "PK", sk = "SK", ttl = "ttl" }
+    chatbot_customer_context   = { pk = "PK", sk = "SK", ttl = "ttl" }
+    chatbot_channel_mapping    = { pk = "PK", sk = "SK" }
+    chatbot_processed_messages = { pk = "PK", sk = "SK", ttl = "ttl" }
+    chatbot_abuse_limits       = { pk = "PK", sk = "SK", ttl = "ttl" }
+    chatbot_tool_audit         = { pk = "PK", sk = "SK", ttl = "ttl" }
+    pending_actions            = { pk = "PK", sk = "SK", ttl = "ttl" }
+    order_locks                = { pk = "PK", sk = "SK", ttl = "ttl" }
+    appointment_locks          = { pk = "PK", sk = "SK", ttl = "ttl" }
+    chatbot_checkpoints        = { pk = "PK", sk = "SK", ttl = "ttl" }
   }
 }
 
@@ -57,6 +58,12 @@ module "dynamodb" {
   tables      = local.tables
 }
 
+module "sqs" {
+  source      = "../../modules/sqs"
+  name_prefix = "chatbot-aws-dev"
+  kms_key_arn = module.kms.key_arn
+}
+
 module "aurora" {
   source = "../../modules/aurora"
   name   = "chatbot-aws-dev"
@@ -77,10 +84,47 @@ module "iam" {
   environment = "dev"
   functions   = ["conversation_gateway", "supervisor"]
 
-  # Least-privilege por función: solo el supervisor habla con Bedrock.
+  # Least-privilege por función: el gateway solo encola y consulta su
+  # mapeo/deduplicación; solo el supervisor habla con Bedrock.
   # TODO(verify): ARNs exactos (foundation-model vs inference-profile) al
   # cablear el adapter real (Pasos 7–10).
   inline_policies = {
+    conversation_gateway = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Sid    = "EncolarEventos"
+          Effect = "Allow"
+          Action = [
+            "sqs:SendMessage",
+          ]
+          Resource = [
+            module.sqs.queue_arn,
+          ]
+        },
+        {
+          Sid    = "MapeoCanalTenant"
+          Effect = "Allow"
+          Action = [
+            "dynamodb:GetItem",
+          ]
+          Resource = [
+            "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/${module.dynamodb.table_names["chatbot_channel_mapping"]}",
+          ]
+        },
+        {
+          Sid    = "DeduplicacionWebhook"
+          Effect = "Allow"
+          Action = [
+            "dynamodb:PutItem",
+            "dynamodb:DeleteItem",
+          ]
+          Resource = [
+            "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/${module.dynamodb.table_names["chatbot_processed_messages"]}",
+          ]
+        },
+      ]
+    })
     supervisor = jsonencode({
       Version = "2012-10-17"
       Statement = [
@@ -129,8 +173,11 @@ locals {
       zip_path = "../../../artifacts/conversation_gateway.zip"
       timeout  = 10
       env = {
-        CHATBOT_ENVIRONMENT      = "dev"
-        CHATBOT_BEDROCK_MODEL_ID = local.model_id
+        CHATBOT_ENVIRONMENT              = "dev"
+        CHATBOT_BEDROCK_MODEL_ID         = local.model_id
+        CHATBOT_EVENTS_QUEUE_URL         = module.sqs.queue_url
+        CHATBOT_CHANNEL_MAPPING_TABLE    = module.dynamodb.table_names["chatbot_channel_mapping"]
+        CHATBOT_PROCESSED_MESSAGES_TABLE = module.dynamodb.table_names["chatbot_processed_messages"]
       }
     }
     supervisor = {

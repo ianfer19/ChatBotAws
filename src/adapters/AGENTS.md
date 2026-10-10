@@ -21,6 +21,7 @@ y sin importar `slices.*` (lo verifica import-linter en CI).
 | `dynamodb/` | DynamoDB (tablas operacionales) | puertos de persistencia de contexto/conversación/abuso + `MemoryStorePort` (`DynamoDBMemoryStore`) | 6 y 8 |
 | `aurora/` | Aurora PostgreSQL v2 + pgvector (SOLO conocimiento) | `VectorStorePort` (búsqueda pgvector con `tenant_id`) | 7 |
 | `s3/` | S3 (archivo conversaciones y media) | puertos de archivo | 6 |
+| `sqs/` | Amazon SQS (cola de eventos del gateway) | `shared.ports.EventBusPort` (`SQSEventBus`: cuerpo `{event, payload}`, timeout y errores traducidos) | 9 |
 | `comprehend/` | Amazon Comprehend (sentimiento) | `SentimentPort` de handoff | fuera de ruta |
 | `legacy_backend/` | APIs HTTP del backend `sahagunonline/back` | puertos de negocio (pedidos, citas, catálogo) | 5 |
 
@@ -39,9 +40,11 @@ Secrets Manager, cacheado, psycopg traducido a `ToolError`) y
 `MemoryStorePort` (solo el checkpoint más reciente, `thread_id = tenant#conversación`;
 ADR 0013). `dynamodb/` está
 implementado desde el **Paso 8** con `DynamoDBMemoryStore(MemoryStorePort)` (tabla
-`chatbot_checkpoints`, claves `ORG#`/`CONV#`, TTL, errores traducidos) — las demás
-carpetas son esqueletos que se rellenan en sus pasos. El cliente de
-Guardrails/Prompt Management llega en el Paso 13.
+`chatbot_checkpoints`, claves `ORG#`/`CONV#`, TTL, errores traducidos). `sqs/` está
+implementado desde el **Paso 9** con `SQSEventBus(EventBusPort)` (cola con DLQ vía
+`infra/modules/sqs`, cuerpo `{event, payload}`, `ToolError`/`ToolTimeoutError` con
+`event_name` en `details` y sin payload en logs) — las demás carpetas son esqueletos que
+se rellenan en sus pasos. El cliente de Guardrails/Prompt Management llega en el Paso 13.
 
 ## Reglas
 
