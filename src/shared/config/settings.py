@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     # Paso 8 (memoria): tamaño de la ventana de historial que ve el clasificador;
     # lo que desborda se reduce a resumen (nodo `window_history` del supervisor).
     history_window_size: int = Field(default=10, ge=1)
+    # Paso 8 (checkpoints): tabla DynamoDB del estado de conversación; opcional a
+    # nivel de `Settings` (solo el proceso que compone el checkpointer la exige) y
+    # `DynamoDBMemoryStore` falla rápido si falta.
+    checkpoints_table: str = Field(default="")
 
     @model_validator(mode="after")
     def _bedrock_model_id_es_obligatorio(self) -> Self:

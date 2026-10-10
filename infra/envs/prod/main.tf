@@ -28,6 +28,7 @@ locals {
     pending_actions          = { pk = "PK", sk = "SK", ttl = "ttl" }
     order_locks              = { pk = "PK", sk = "SK", ttl = "ttl" }
     appointment_locks        = { pk = "PK", sk = "SK", ttl = "ttl" }
+    chatbot_checkpoints      = { pk = "PK", sk = "SK", ttl = "ttl" }
   }
 }
 
@@ -96,6 +97,20 @@ module "iam" {
             "arn:aws:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:inference-profile/*",
           ]
         },
+        {
+          Sid    = "CheckpointsDeConversacion"
+          Effect = "Allow"
+          Action = [
+            # TODO(verify): acciones mínimas del checkpointer (Paso 8); revisar
+            # si `dynamodb:PartiQL*` o condicionales reducen más el permiso.
+            "dynamodb:GetItem",
+            "dynamodb:PutItem",
+            "dynamodb:DeleteItem",
+          ]
+          Resource = [
+            "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/${module.dynamodb.table_names["chatbot_checkpoints"]}",
+          ]
+        },
       ]
     })
   }
@@ -125,8 +140,9 @@ locals {
       timeout     = 60
       memory_size = 512
       env = {
-        CHATBOT_ENVIRONMENT      = "prod"
-        CHATBOT_BEDROCK_MODEL_ID = local.model_id
+        CHATBOT_ENVIRONMENT       = "prod"
+        CHATBOT_BEDROCK_MODEL_ID  = local.model_id
+        CHATBOT_CHECKPOINTS_TABLE = module.dynamodb.table_names["chatbot_checkpoints"]
       }
     }
   }

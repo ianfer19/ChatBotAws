@@ -68,6 +68,7 @@ CREATE INDEX knowledge_chunks_embedding_idx
 | `chatbot_channel_mapping` | `WA_CONFIG#<phone_number_id>` (o `IG_CONFIG#…` / `FB_CONFIG#…`) | `ORG#<tenant_id>` | no expira | Réplica del mapeo de canal del legacy; decisión D5 |
 | `chatbot_abuse_limits` | `ORG#<tenant_id>` | `LIMITS#<customer_id>` | `ttl` | Contadores por ventana, `blocked_until`, motivo |
 | `chatbot_tool_audit` | `ORG#<tenant_id>` | `TOOL#<tsISO>#<tool_name>` | `ttl` según retención | Quién llamó qué tool, con qué argumentos y resultado |
+| `chatbot_checkpoints` | `ORG#<tenant_id>` | `CONV#<conversation_id>` | `ttl` opcional | Checkpoint más reciente de LangGraph por conversación (Paso 8): payload JSON opaco (`MemoryStorePort`), que hace que la conversación sobreviva a invocaciones distintas |
 
 El prefijo `ORG#<tenant_id>#` se hereda del patrón single-table del legacy para que el
 test de contrato de claves sea único y para respetar la regla de filtrado de

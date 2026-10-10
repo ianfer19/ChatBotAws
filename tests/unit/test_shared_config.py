@@ -73,3 +73,14 @@ def test_ventana_de_historial_por_defecto_y_personalizada(monkeypatch: pytest.Mo
     monkeypatch.setenv("CHATBOT_HISTORY_WINDOW_SIZE", "0")
     with pytest.raises(PydanticValidationError):
         Settings()
+
+
+def test_tabla_de_checkpoints_por_defecto_y_personalizada(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """La tabla del checkpointer (Paso 8) es opcional a nivel de Settings y no negativa."""
+    monkeypatch.delenv("CHATBOT_CHECKPOINTS_TABLE", raising=False)
+    assert load_settings().checkpoints_table == ""
+
+    monkeypatch.setenv("CHATBOT_CHECKPOINTS_TABLE", "chatbot_checkpoints_dev")
+    assert load_settings().checkpoints_table == "chatbot_checkpoints_dev"

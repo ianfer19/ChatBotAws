@@ -5,8 +5,8 @@
 > sin releer el código. Criterio de cierre del paso:
 > [ROADMAP §1 fila 8](../ROADMAP.md). Decisiones de alcance: ADR 0013 (Fase 5).
 >
-> **Estado global: PASO 8 EN CURSO (Fase 3 de 5 completadas; siguiente: Fase 4 —
-> DynamoDB + Terraform); tras el cierre: Paso 9 (Conversation gateway).**
+> **Estado global: PASO 8 EN CURSO (Fase 4 de 5 completadas; siguiente: Fase 5 —
+> ADR 0013 + docs + cierre); tras el cierre: Paso 9 (Conversation gateway).**
 
 ## Decisiones cerradas con el usuario (2026-10-10)
 
@@ -85,13 +85,18 @@
       rehacerse; las respuestas previas no se heredan; composición sin checkpointer
       retrocompatible.
 
-## Fase 4 — DynamoDB + Terraform  (pendiente)
+## Fase 4 — DynamoDB + Terraform  (hecha)
 
-- [ ] `adapters/dynamodb/`: `DynamoDBMemoryStore(MemoryStorePort)` (put/get/delete,
-      TTL, errores traducidos a `ToolError`, timeout) + settings de la tabla.
-- [ ] Tabla `chatbot_checkpoints` (PK/SK, TTL) en `infra/modules/dynamodb` + cableado
-      en los 3 envs + IAM de la Lambda supervisor (`TODO(verify)` de acciones mínimas).
-- [ ] Tests con el cliente mockeado (sin AWS real).
+- [x] `adapters/dynamodb/memory.py`: `DynamoDBMemoryStore` de `MemoryStorePort`
+      (put/get/delete, claves `ORG#`/`CONV#`, TTL con caducidad comprobada en
+      lectura, `ClientError`/`BotoCoreError` → `ToolError`, timeouts →
+      `ToolTimeoutError`, logs sin payload) + `checkpoints_table` en `Settings`
+      (`CHATBOT_CHECKPOINTS_TABLE`).
+- [x] Tabla `chatbot_checkpoints` (PK/SK, TTL) en los 3 envs + IAM de la Lambda
+      supervisor (`GetItem`/`PutItem`/`DeleteItem`, `TODO(verify)` de acciones
+      mínimas) + env `CHATBOT_CHECKPOINTS_TABLE` del supervisor.
+- [x] Tests con el cliente mockeado en `test_adapters_dynamodb_memory.py` (sin AWS
+      real) + test de `Settings`.
 
 ## Fase 5 — ADR 0013 + docs + cierre  (pendiente)
 

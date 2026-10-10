@@ -17,7 +17,7 @@ y sin importar `slices.*` (lo verifica import-linter en CI).
 | `in_memory/` | Sin servicio (dobles en memoria de puertos compartidos) | `DraftStorePort`, `VectorStorePort`, `EmbeddingsPort` | 5 y 7 |
 | `bedrock/` | Amazon Bedrock (modelos, embeddings, Guardrails, Prompt Management) | `shared.ports.LLMPort` + `EmbeddingsPort` (`BedrockEmbeddings`) + cliente de guardrails/prompt | 2, 7 y 13 |
 | `agentcore/` | Bedrock AgentCore (Runtime, Memory, Gateway, Identity, Policy) | puertos de memoria/gateway | 10–12 |
-| `dynamodb/` | DynamoDB (tablas operacionales) | puertos de persistencia de contexto/conversación/abuso | 6 |
+| `dynamodb/` | DynamoDB (tablas operacionales) | puertos de persistencia de contexto/conversación/abuso + `MemoryStorePort` (`DynamoDBMemoryStore`) | 6 y 8 |
 | `aurora/` | Aurora PostgreSQL v2 + pgvector (SOLO conocimiento) | `VectorStorePort` (búsqueda pgvector con `tenant_id`) | 7 |
 | `s3/` | S3 (archivo conversaciones y media) | puertos de archivo | 6 |
 | `comprehend/` | Amazon Comprehend (sentimiento) | `SentimentPort` de handoff | fuera de ruta |
@@ -33,9 +33,11 @@ Secrets Manager, cacheado, psycopg traducido a `ToolError`) y
 `AuroraDocumentRegistry` vive en `infrastructure/aurora.py` del slice `knowledge_rag`
 (idempotencia de re-ingesta; regla: los adapters transversales no importan slices).
 `in_memory/` existe desde el **Paso 5** (`InMemoryDraftStore`) y desde el **Paso 7** añade
-`InMemoryVectorStore` e `InMemoryEmbeddings` (dobles de tests y evals). El cliente de
-Guardrails/Prompt Management llega en el Paso 13; las demás carpetas son esqueletos que se
-rellenan en sus pasos.
+`InMemoryVectorStore` e `InMemoryEmbeddings` (dobles de tests y evals). `dynamodb/` está
+implementado desde el **Paso 8** con `DynamoDBMemoryStore(MemoryStorePort)` (tabla
+`chatbot_checkpoints`, claves `ORG#`/`CONV#`, TTL, errores traducidos) — las demás
+carpetas son esqueletos que se rellenan en sus pasos. El cliente de
+Guardrails/Prompt Management llega en el Paso 13.
 
 ## Reglas
 
