@@ -5,8 +5,8 @@
 > sin releer el código. Criterio de cierre del paso:
 > [ROADMAP §1 fila 8](../ROADMAP.md). Decisiones de alcance: ADR 0013 (Fase 5).
 >
-> **Estado global: PASO 8 EN CURSO (Fase 2 de 5 completadas; siguiente: Fase 3 —
-> cableado del checkpointer); tras el cierre: Paso 9 (Conversation gateway).**
+> **Estado global: PASO 8 EN CURSO (Fase 3 de 5 completadas; siguiente: Fase 4 —
+> DynamoDB + Terraform); tras el cierre: Paso 9 (Conversation gateway).**
 
 ## Decisiones cerradas con el usuario (2026-10-10)
 
@@ -68,13 +68,22 @@
       e2e en `test_supervisor_graph.py` (12 mensajes → resumen primero y clasifica
       con la ventana) + ventana en `test_shared_config.py`.
 
-## Fase 3 — cableado del checkpointer en el supervisor + evals  (pendiente)
+## Fase 3 — cableado del checkpointer en el supervisor + evals  (hecha)
 
-- [ ] `build_supervisor_graph(..., checkpointer=None)` (opcional y retrocompatible).
-- [ ] El grafo recuerda el turno (historial con ventana + resumen) y la conversación
-      sobrevive invocaciones distintas con `thread_id`.
-- [ ] Evals: dos invocaciones encadenadas conservan el hilo; **cero fuga** de estado
-      entre conversaciones y entre tenants.
+- [x] `build_supervisor_graph(..., checkpointer=None)` (opcional y retrocompatible:
+      `None` = grafo sin memoria, como hasta ahora).
+- [x] El grafo recuerda el turno: con checkpointer, el segundo `invoke` del mismo
+      `thread_id` ve el historial (ventana + resumen) que guardó el primero; los
+      nodos no cambian, la memoria vive en el state persistido.
+- [x] Sin herencia de resultados: `window_history` vacía `reply`, `route_error` y
+      `pending_outcome` al inicio del turno (solo si venían del checkpoint; sin
+      checkpointer no se escribe nada). `routed` no se limpia: contrato de lectura
+      en `state.py` (`pending_outcome` → `reply` → `routed`).
+- [x] Evals en `tests/unit/test_supervisor_checkpointer.py`: dos invocaciones
+      encadenadas conservan el hilo; **cero fuga** entre conversaciones del mismo
+      comercio y entre comercios con la misma conversación; el resumen persiste sin
+      rehacerse; las respuestas previas no se heredan; composición sin checkpointer
+      retrocompatible.
 
 ## Fase 4 — DynamoDB + Terraform  (pendiente)
 
@@ -96,9 +105,9 @@
 
 ## Criterios de hecho del ROADMAP (§1 fila 8)
 
-- [ ] **La conversación sobrevive a invocaciones distintas**: mismo `thread_id` en
+- [x] **La conversación sobrevive a invocaciones distintas**: mismo `thread_id` en
       turnos separados recupera el estado (eval Fase 3).
-- [ ] **Sin fuga de estado entre invocaciones**: conversaciones/tenants distintos no
+- [x] **Sin fuga de estado entre invocaciones**: conversaciones/tenants distintos no
       comparten nada (eval Fase 3).
 - [ ] Batería completa en verde al cierre de la Fase 5.
 

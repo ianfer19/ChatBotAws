@@ -19,6 +19,7 @@ ventana se resume la conversación.
 from functools import partial
 from typing import Any
 
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
@@ -60,6 +61,7 @@ def build_supervisor_graph(
     draft_store: DraftStorePort | None = None,
     confirmer: ConfirmerPort | None = None,
     history_window_size: int = 10,
+    checkpointer: BaseCheckpointSaver[str] | None = None,
 ) -> CompiledStateGraph[SupervisorState, Any, Any, Any]:  # pyrefly: ignore[bad-specialization]
     """Construye y compila el grafo del supervisor con las dependencias del entorno.
 
@@ -79,9 +81,14 @@ def build_supervisor_graph(
             `None` desactiva el router junto a `draft_store`.
         history_window_size: Tamaño de la ventana que ve el clasificador (Paso 8);
             lo que desborda se reduce a resumen en el nodo `window_history`.
+        checkpointer: Persistencia del estado entre turnos (Paso 8; en producción
+            `PortCheckpointSaver` sobre `MemoryStorePort`). `None` deja el grafo
+            sin memoria (retrocompatible: el llamador pasa `history` en cada
+            turno, como el REPL de hoy).
 
     Returns:
-        Grafo compilado, listo para `invoke` con un estado inicial `SupervisorState`.
+        Grafo compilado, listo para `invoke` con un estado inicial `SupervisorState`
+        (con checkpointer, además con `config={"configurable": {"thread_id": ...}}`).
 
     Raises:
         AppError: Si el prompt base del supervisor no se puede cargar (fichero ausente).
@@ -137,4 +144,4 @@ def build_supervisor_graph(
     graph.add_edge("route_orders", END)
     graph.add_edge("route_faq", END)
     graph.add_edge("route_pending", END)
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer)

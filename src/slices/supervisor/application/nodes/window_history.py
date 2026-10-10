@@ -6,6 +6,11 @@ resumen de lo recortado. El resumen viaja como mensaje sintético al frente de
 la ventana y se guarda en `summary` para los turnos siguientes (resumen
 rodante). El proveedor caído no corta el turno: se conserva el resumen previo
 (si lo había) y la ventana sigue adelante; nunca se inventa contenido.
+
+Además vacía al inicio los campos de resultado del turno anterior (`reply`,
+`route_error`, `pending_outcome`): solo están presentes cuando el checkpointer
+recuperó el state previo (Paso 8) y, sin limpiarlos, la arista
+`ruta_tras_pendiente` cerraría el turno con una respuesta vieja.
 """
 
 from shared.errors import ToolError
@@ -100,18 +105,44 @@ def _componer(resumen: str | None, ventana: list[LLMMessage]) -> list[LLMMessage
     return ventana
 
 
+def _vaciar_respuestas_previas(state: SupervisorState) -> SupervisorState:
+    """Vacia los campos de resultado que vinieron del turno anterior (checkpointer).
+
+    Solo se toman las claves presentes: sin checkpointer el turno empieza vacío y
+    no se cambia nada, así que los tests que asertan `"reply" not in estado` siguen
+    viendo la clave ausente.
+
+    Args:
+        state: Estado cargado del checkpoint (o turno fresco en modo sin
+            checkpointer).
+
+    Returns:
+        Copia del estado con `reply`/`route_error`/`pending_outcome` a `None` solo
+        si estaban presentes.
+    """
+    limpio: SupervisorState = {**state}
+    if "reply" in state:
+        limpio["reply"] = None
+    if "route_error" in state:
+        limpio["route_error"] = None
+    if "pending_outcome" in state:
+        limpio["pending_outcome"] = None
+    return limpio
+
+
 def window_history(state: SupervisorState, *, deps: Deps) -> SupervisorState:
     """Aplica la política de ventana y escribe `history` y `summary` en el turno.
 
     Args:
         state: Turno con `message` y `history` (garantiza `load_context`) y,
-            opcionalmente, `summary` de turnos previos.
+            opcionalmente, `summary` de turnos previos y resultados del turno
+            anterior (solo con checkpointer).
         deps: LLM y tamaño de ventana inyectados por el constructor del grafo.
 
     Returns:
         Estado con `history` recortado a la ventana (con el resumen sintético al
-        frente si lo hay) y `summary` actualizado. Sin desbordado no hay llamada
-        al LLM.
+        frente si lo hay), `summary` actualizado y las respuestas previas
+        vaciadas. Sin desbordado no hay llamada al LLM.
 
     Raises:
         MissingTurnInputsError: Si el turno llega sin ventana de historial.
@@ -127,8 +158,9 @@ def window_history(state: SupervisorState, *, deps: Deps) -> SupervisorState:
     previo = state.get("summary")
     base = without_summary(state["history"])
     conservados, desbordados = split_window(base, size=deps.history_window_size)
+    limpio = _vaciar_respuestas_previas(state)
     if not desbordados:
-        return {**state, "history": _componer(previo, conservados), "summary": previo}
+        return {**limpio, "history": _componer(previo, conservados), "summary": previo}
     resumen = _resumir(
         deps,
         desbordados,
@@ -136,4 +168,4 @@ def window_history(state: SupervisorState, *, deps: Deps) -> SupervisorState:
         tenant_id=mensaje.tenant_id,
         correlation_id=mensaje.correlation_id,
     )
-    return {**state, "history": _componer(resumen, conservados), "summary": resumen}
+    return {**limpio, "history": _componer(resumen, conservados), "summary": resumen}

@@ -13,7 +13,11 @@
 > (`faq_graph=None` → `route_pending`, retrocompatible). **Paso 8 (Fase 2)**: nodo
 > `window_history` entre `load_context` y `resolve_pending` que recorta la ventana a
 > `history_window_size` (10 por defecto, `CHATBOT_HISTORY_WINDOW_SIZE`) y reduce lo
-> desbordado a resumen rodante en `SupervisorState.summary`. Handoff y abuso
+> desbordado a resumen rodante en `SupervisorState.summary`. **Fase 3 del Paso 8**:
+> `build_supervisor_graph(..., checkpointer=None)` opcional (`PortCheckpointSaver`
+> en producción); con checkpointer, `window_history` vacía al inicio `reply`,
+> `route_error` y `pending_outcome` para que el turno no herede respuestas del
+> anterior. Handoff y abuso
 > (`sentiment_handoff`, `abuse_protection`) siguen fuera de la ruta (ROADMAP §4).
 
 ## Responsabilidad
@@ -37,7 +41,7 @@ tools de negocio.
 
 - `application/graph.py` → `build_supervisor_graph(llm, context_reader, allowed_bots,
   appointments_graph, orders_graph=None, faq_graph=None, draft_store=None,
-  confirmer=None, history_window_size=10)`. Nodos en
+  confirmer=None, history_window_size=10, checkpointer=None)`. Nodos en
   `application/nodes/`:
   `load_context` (exige `history`; lee el contexto con los ids del mensaje y falla si
   no lo hay), `window_history` (Paso 8: recorta `history` a la ventana; si hay
@@ -67,7 +71,10 @@ tools de negocio.
   (retrocompatible).
 - `SupervisorState` (`application/state.py`): el llamador pone `message` e `history`;
   `summary` lo escribe `window_history` (resumen rodante, Paso 8); el resto lo
-  escriben los nodos (`NotRequired`).
+  escriben los nodos (`NotRequired`). Con checkpointer, `window_history` vacía
+  `reply`/`route_error`/`pending_outcome` al inicio del turno y los consumidores
+  leen `pending_outcome` → `reply` → `routed` (contrato en el docstring de
+  `state.py`).
 - El prompt del clasificador siempre incluye el bloque de contexto y la ventana de
   historial (requisito 7.2; hay tests que fallan si faltan).
 
@@ -179,6 +186,12 @@ responde con el saludo plantilla del tenant.
   vacía del LLM conserva el resumen previo, el sintético no se re-resume, ventana
   personalizada y turno sin historial) + e2e en `test_supervisor_graph.py`
   (12 mensajes → resumen primero y clasificación con la ventana de 10).
+- Unit checkpointer (Paso 8, hecho): `tests/unit/test_supervisor_checkpointer.py`
+  — con `PortCheckpointSaver` en memoria: la conversación sobrevive a invocaciones
+  distintas con el mismo `thread_id`, cero fuga entre conversaciones y entre
+  comercios, el resumen persiste sin rehacerse, las respuestas del turno anterior
+  no se heredan (`reply`/`route_error` limpios) y la composición sin checkpointer
+  sigue siendo retrocompatible.
 - Eval (hecho): `tests/agent_evals/datasets/supervisor_routing.json` con su ejecutor
   `tests/agent_evals/test_supervisor_dataset.py` (`greeting_01/02`, `appointments_01`,
   `orders_01`, `allowed_bots_01`, `ambiguous_01`); el build falla si el saludo enruta
