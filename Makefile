@@ -30,7 +30,7 @@ tf-fmt:
 	terraform fmt -check -recursive infra
 
 tf-validate:
-	@for d in infra/envs/*/; do \
+	@for d in infra/bootstrap/ infra/envs/*/; do \
 		if ls "$$d"*.tf >/dev/null 2>&1; then \
 			terraform -chdir="$$d" init -backend=false -input=false; \
 			terraform -chdir="$$d" validate; \

@@ -49,7 +49,7 @@ tools con lógica de negocio propose/commit). La ruta activa es [docs/ROADMAP.md
 │   ├── adr/                   # Architecture Decision Records (0001..0009)
 │   ├── ai/                    # Prompts, guardrails, RAG, memoria, evals
 │   ├── security/              # Threat model, retención de datos
-│   ├── progress/              # Checklist vivo del paso en curso (Paso 5)
+│   ├── progress/              # Checklist vivo del paso en curso (Paso 6)
 │   └── runbooks/              # Procedimientos operativos (índice)
 │
 ├── src/
@@ -293,7 +293,7 @@ de las fases históricas 1–9 a los pasos nuevos).
 | 3 | LangGraph: grafo de citas + `AgentState` en `appointments/application` | **hecho** |
 | 4 | Supervisor (routing, saludo) + `customer_context` (contexto obligatorio por turno) | **hecho** |
 | 5 | Tools + lógica de negocio (citas, pedidos) con dobles en memoria | **hecho** |
-| 6 | Infraestructura Terraform base (state, red, DynamoDB, S3, Aurora, IAM, apigw, lambda) | pendiente |
+| 6 | Infraestructura Terraform base (state, red, DynamoDB, S3, Aurora, IAM, apigw, lambda) | **en curso** (ver [docs/progress/](docs/progress/)) |
 | 7 | RAG + Aurora/pgvector (`knowledge_rag`, `VectorStorePort` → `adapters/aurora`) | pendiente |
 | 8 | Memory / checkpoints (checkpointer de LangGraph, ADR 0007) | pendiente |
 | 9 | Conversation gateway (webhook Meta, 3 canales, firma y tenant) | pendiente |

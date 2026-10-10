@@ -30,11 +30,11 @@ jobs:
       - name: terraform fmt
         run: terraform fmt -check -recursive
 
-      # init sin backend + validate por entorno; hasta el Paso 6 aún no hay .tf y el paso
-      # termina sin hacer nada (el bucle solo entra si existen archivos .tf).
-      - name: terraform validate por entorno
+      # init sin backend + validate de bootstrap y por entorno; el bucle solo
+      # entra en directorios que ya tienen archivos .tf.
+      - name: terraform validate bootstrap y entornos
         run: |
-          for d in envs/*/; do
+          for d in bootstrap/ envs/*/; do
             if ls "$d"*.tf >/dev/null 2>&1; then
               echo "== $d"
               terraform -chdir="$d" init -backend=false -input=false

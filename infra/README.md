@@ -40,8 +40,14 @@ Estado remoto en S3 con lock en DynamoDB (módulo `state/`).
 ## Uso
 
 ```bash
-cd infra/envs/dev
+# 1) Una única vez por cuenta: crear el estado remoto (S3 + lock DynamoDB)
+cd infra/bootstrap
 terraform init
+terraform apply
+
+# 2) Por entorno: el backend vacío de backend.tf se completa con backend.hcl
+cd ../envs/dev
+terraform init -backend-config=backend.hcl
 terraform plan
 terraform apply
 ```
@@ -52,5 +58,6 @@ terraform fmt -check -recursive infra
 make tf-validate
 ```
 
-`make tf-validate` hace `init -backend=false` + `validate` por entorno; `plan/apply`
-requieren credenciales AWS y el backend `state/` ya desplegado (Paso 6).
+`make tf-validate` hace `init -backend=false` + `validate` de `bootstrap/` y de
+cada entorno (sin credenciales); `plan/apply` requieren credenciales AWS y el
+bootstrap ya aplicado (Paso 6, [bootstrap/README.md](bootstrap/README.md)).
