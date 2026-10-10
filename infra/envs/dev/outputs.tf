@@ -12,3 +12,8 @@ output "vpc_id" {
   description = "VPC del entorno (red mínima, subnets privadas)."
   value       = module.network.vpc_id
 }
+
+output "aurora_endpoint" {
+  description = "Endpoint de escritura de Aurora (conocimiento RAG, Paso 7)."
+  value       = module.aurora.cluster_endpoint
+}

@@ -55,3 +55,24 @@ module "dynamodb" {
   kms_key_arn = module.kms.key_arn
   tables      = local.tables
 }
+
+module "aurora" {
+  source = "../../modules/aurora"
+  name   = "chatbot-aws-dev"
+
+  vpc_id      = module.network.vpc_id
+  vpc_cidr    = module.network.vpc_cidr
+  subnet_ids  = module.network.private_subnet_ids
+  kms_key_arn = module.kms.key_arn
+
+  min_acu             = 0.5
+  max_acu             = 1
+  deletion_protection = false
+  skip_final_snapshot = true
+}
+
+module "iam" {
+  source      = "../../modules/iam"
+  environment = "dev"
+  functions   = ["conversation_gateway", "supervisor"]
+}

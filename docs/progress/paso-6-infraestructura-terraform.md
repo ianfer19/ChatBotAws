@@ -5,7 +5,7 @@
 > sin releer el código. Criterio de cierre del paso:
 > [ROADMAP §1 fila 6](../ROADMAP.md). Decisiones de alcance: ADR 0012 (Fase 5).
 >
-> **Estado global: FASE 2 de 5 completada; siguiente: Fase 3 (aurora + iam).**
+> **Estado global: FASE 3 de 5 completada; siguiente: Fase 4 (apigw + lambda).**
 
 ## Decisiones cerradas con el usuario (2026-10-09)
 
@@ -53,15 +53,23 @@
 - [x] Cableado en los 3 envs (`versions.tf`, `variables.tf`, `main.tf`,
       `outputs.tf`; CIDRs 10.10/10.20/10.30.0.0/16) + fmt/validate en verde.
 
-## Fase 3 — aurora + iam  (pendiente)
+## Fase 3 — aurora + iam  (hecha)
 
-- [ ] `aurora`: PostgreSQL Serverless v2 + pgvector (parameter group), KMS,
-      credenciales en Secrets Manager, subnet group/SG en subnets privadas,
-      min ACU bajo en dev → `TODO(verify)` de versión de motor.
-- [ ] `iam`: factory de roles Lambda least-privilege (rol base + adjuntos por
-      función); acciones exactas → `TODO(verify)` (SECURITY §2.3).
-- [ ] Claves KMS por entorno si aún no existen (Aurora/S3/DynamoDB) y cableado
-      en los 3 envs + fmt/validate en verde.
+- [x] `aurora`: Serverless v2 (`db.serverless`) con `min_acu`/`max_acu` por
+      entorno (dev/staging 0.5–1, prod 1–2 → `TODO(verify pricing)`), parameter
+      group con `shared_preload_libraries=vector` (`TODO(verify)`; el
+      `CREATE EXTENSION vector` es de la migración del Paso 7), subnets
+      privadas, SG que solo admite 5432 desde el CIDR de la VPC, cifrado con
+      la llave del entorno, contraseña del master en Secrets Manager
+      (`manage_master_user_password`), prod con `deletion_protection` y
+      snapshot final.
+- [x] `iam`: factory de roles por función (`functions` como set) con confianza
+      `lambda.amazonaws.com`, adjunto `AWSLambdaBasicExecutionRole` y mapa
+      `inline_policies` para el least-privilege por función →
+      `TODO(verify)` de las acciones mínimas al cablear cada adapter.
+- [x] Cableado en los 3 envs (aurora + iam con
+      `functions = ["conversation_gateway", "supervisor"]`), output
+      `aurora_endpoint` y `vpc_cidr` en `network` + fmt/validate en verde.
 
 ## Fase 4 — apigw + lambda  (pendiente)
 

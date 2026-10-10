@@ -54,3 +54,26 @@ module "dynamodb" {
   kms_key_arn = module.kms.key_arn
   tables      = local.tables
 }
+
+module "aurora" {
+  source = "../../modules/aurora"
+  name   = "chatbot-aws-prod"
+
+  vpc_id      = module.network.vpc_id
+  vpc_cidr    = module.network.vpc_cidr
+  subnet_ids  = module.network.private_subnet_ids
+  kms_key_arn = module.kms.key_arn
+
+  # Prod con techo de costo más alto y blindaje: sin borrado accidental ni
+  # destrucción sin snapshot final (TODO(verify pricing) de las ACU).
+  min_acu             = 1
+  max_acu             = 2
+  deletion_protection = true
+  skip_final_snapshot = false
+}
+
+module "iam" {
+  source      = "../../modules/iam"
+  environment = "prod"
+  functions   = ["conversation_gateway", "supervisor"]
+}
