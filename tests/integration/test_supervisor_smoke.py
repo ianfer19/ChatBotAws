@@ -136,6 +136,7 @@ def _turno(texto: str) -> dict[str, object]:
             tenant_id=_TENANT,
             correlation_id=_MENSAJE_ID,
             channel="whatsapp",
+            emitter_id="1000",
             customer_id=_CLIENTE,
             message_id=_MENSAJE_ID,
             timestamp=datetime(2026, 3, 2, 8, 0),

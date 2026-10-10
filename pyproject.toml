@@ -21,6 +21,10 @@ dependencies = [
     # PostgreSQL del conocimiento: adapters/aurora (RAG con pgvector, Paso 7).
     # El binario trae el driver listo; sin esta dependencia no hay adapter Aurora.
     "psycopg[binary]>=3.2",
+    # HTTP hacia la Graph API de Meta (envío de respuestas, Paso 9 Fase 6): la
+    # Cloud API no es un servicio AWS, así que boto3 no sirve aquí. Se usa
+    # `requests` (el mismo que el legacy) con timeout y reintentos acotados.
+    "requests>=2.32",
 ]
 
 [project.optional-dependencies]
@@ -31,6 +35,9 @@ dev = [
     "pytest-cov>=5.0",
     "import-linter>=2.15",
     "pre-commit>=3.7",
+    # Stubs de `requests` para mypy: sin ellos falla el adapter Graph API
+    # (Paso 9 Fase 6) con "Library stubs not installed for requests".
+    "types-requests",
 ]
 
 [tool.setuptools]

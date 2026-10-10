@@ -33,6 +33,10 @@ class InboundMessage(_ContractBase):
     tenant_id: str = Field(min_length=1, max_length=64)
     correlation_id: str = Field(min_length=1, max_length=64)
     channel: Channel
+    # Emisor Meta del webhook (`phone_number_id` en WhatsApp; id de página en IG/FB).
+    # Es a la vez la clave del mapeo al tenant Y el `recipient_id` de la Cloud API de
+    # salida (`/{phone_number_id}/messages`), así que viaja hasta el consumer.
+    emitter_id: str = Field(min_length=1, max_length=64)
     customer_id: str = Field(min_length=1, max_length=64)
     message_id: str = Field(min_length=1, max_length=128)
     timestamp: datetime
@@ -70,6 +74,11 @@ class OutboundMessage(_ContractBase):
     tenant_id: str = Field(min_length=1, max_length=64)
     correlation_id: str = Field(min_length=1, max_length=64)
     channel: Channel
+    # Id del emisor Meta (`phone_number_id` en WhatsApp, id de página en IG/FB): es
+    # también el `recipient_id` con el que la Graph API de salida enruta la respuesta
+    # (`/{phone_number_id}/messages` o el PSID del destinatario). Viaja en el
+    # `QueuedMessage` desde el webhook hasta el consumer de envíos.
+    emitter_id: str = Field(min_length=1, max_length=64)
     customer_id: str = Field(min_length=1, max_length=64)
     text: str = Field(min_length=1, max_length=_MAX_TEXT)
 

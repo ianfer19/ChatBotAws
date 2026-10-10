@@ -357,6 +357,7 @@ class _Sesion:
             tenant_id=self.tenant,
             correlation_id=uuid.uuid4().hex,
             channel="whatsapp",
+            emitter_id="1000",
             customer_id=_CLIENTE_DEMO,
             message_id=uuid.uuid4().hex,
             timestamp=datetime.now(),

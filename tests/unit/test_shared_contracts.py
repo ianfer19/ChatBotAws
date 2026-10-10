@@ -20,6 +20,7 @@ def _inbound(**overrides: object) -> InboundMessage:
         "tenant_id": "Sede_Elite_01",
         "correlation_id": "corr-0001",
         "channel": "whatsapp",
+        "emitter_id": "1000",
         "customer_id": "57300111111",
         "message_id": "wamid.ABC123",
         "timestamp": datetime(2026, 10, 7, 12, 0, tzinfo=UTC),
@@ -68,6 +69,7 @@ def test_outbound_round_trip() -> None:
         tenant_id="Sede_Elite_01",
         correlation_id="corr-0001",
         channel="whatsapp",
+        emitter_id="1000",
         customer_id="57300111111",
         text="¡Hola! Claro, te ayudo.",
     )

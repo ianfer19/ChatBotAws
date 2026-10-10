@@ -50,6 +50,7 @@ def _respuesta() -> OutboundMessage:
         tenant_id="Sede_Elite_01",
         correlation_id="corr-1",
         channel="whatsapp",
+        emitter_id="1000",
         customer_id="5215512345678",
         text="hola",
     )

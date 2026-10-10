@@ -165,6 +165,7 @@ def _mensaje(texto: str, *, correlation_id: str = "corr-1") -> InboundMessage:
         tenant_id=TENANT,
         correlation_id=correlation_id,
         channel="whatsapp",
+        emitter_id="1000",
         customer_id=CLIENTE,
         message_id="m-1",
         timestamp=AHORA,

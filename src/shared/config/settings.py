@@ -76,6 +76,13 @@ class Settings(BaseSettings):
     # admin; comparado en tiempo constante. `TODO(verify)`: moverlo a Secrets
     # Manager/SSM en prod, igual que los secretos del webhook.
     admin_token: str = Field(default="")
+    # Paso 9 (Fase 6): versión de la Graph API de Meta usada por el envío
+    # (réplica del `api_version = "v24.0"` del legacy). Opcional: solo la
+    # composición del consumer/admin la lee; el adaptador usa este valor.
+    meta_api_version: str = Field(default="v24.0")
+    # Paso 9 (Fase 6): timeout del HTTP hacia la Graph API (segundos). El legacy
+    # usaba 10; aquí es configurable para no acoplarlo al timeout de Bedrock.
+    meta_http_timeout_seconds: int = Field(default=10, ge=1)
 
     @model_validator(mode="after")
     def _bedrock_model_id_es_obligatorio(self) -> Self:

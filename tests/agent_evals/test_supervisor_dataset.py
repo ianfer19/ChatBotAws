@@ -128,6 +128,7 @@ def _mensaje(caso: dict[str, Any]) -> InboundMessage:
         tenant_id=entrada["tenant"],
         correlation_id=f"corr-{caso['id']}",
         channel="whatsapp",
+        emitter_id="1000",
         customer_id="57300999999",
         message_id=f"m-{caso['id']}",
         timestamp=AHORA,

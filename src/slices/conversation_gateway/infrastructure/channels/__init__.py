@@ -1,9 +1,10 @@
 """Adapters de canal tras ChannelPort: parsers de payload (Fase 3) y registro común.
 
 Cada canal tiene su paquete (`whatsapp/`, `instagram/`, `messenger/`) con su parser;
-el cliente de envío y `verify_credentials` llegan en las Fases 5-6 (ADR 0009: añadir
-canal = paquete nuevo + registro aquí, sin tocar dominio ni grafo). Solo envío y
-recepción, sin reglas de negocio.
+el cliente de envío y `verify_credentials` viven en `MetaChannel` de `meta.py` (Fase 6),
+que comparte Graph API y credenciales SSM entre los 3 canales (ADR 0009: añadir canal =
+parser nuevo + registro aquí, sin tocar dominio ni grafo). Solo envío y recepción, sin
+reglas de negocio.
 """
 
 from collections.abc import Callable, Mapping

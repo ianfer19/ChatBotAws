@@ -273,6 +273,7 @@ class WebhookReceiver:
                 tenant_id=tenant_id,
                 correlation_id=uuid.uuid4().hex,
                 channel=mensaje.channel,
+                emitter_id=mensaje.emitter_id,
                 customer_id=mensaje.customer_id,
                 message_id=mensaje.message_id,
                 timestamp=mensaje.timestamp,

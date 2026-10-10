@@ -6,6 +6,9 @@ vive en la clave del doble, nunca en el payload.
 """
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+
+from requests import Response
 
 from shared.contracts.messages import OutboundMessage
 from shared.contracts.types import Channel
@@ -336,3 +339,72 @@ class InMemoryChannel:
         """
         del channel, tenant_id
         return self._credentials_ok
+
+
+@dataclass(frozen=True)
+class GraphCall:
+    """Captura de un POST al doble de Graph API (tipada para los tests).
+
+    Evita `dict[str, object]` (cuyo indexador devuelve `object` y obliga a casts en
+    cada test); con un dataclass los tests leen `call.url`/`call.json` tipados.
+
+    Attributes:
+        url: URL del endpoint Graph API.
+        json: Cuerpo JSON enviado.
+        headers: Cabeceras enviadas.
+        timeout: Segundos de espera usados en la llamada.
+    """
+
+    url: str
+    json: dict[str, object]
+    headers: dict[str, str]
+    timeout: float
+
+
+class InMemoryGraphClient:
+    """`GraphApiPort` de tests: captura el POST y puede fingir un estado HTTP.
+
+    No usa red: devuelve una respuesta sintética con `status_code` fijo, para probar
+    el `MetaChannel.send` (camino feliz y rechazo >= 400) sin tocar la Graph API.
+
+    Example:
+        >>> from slices.conversation_gateway.infrastructure.in_memory import InMemoryGraphClient
+        >>> client = InMemoryGraphClient()
+        >>> client.post(
+        ...     "https://graph.facebook.com/v24.0/1/messages",
+        ...     json={"messaging_product": "whatsapp"},
+        ...     headers={},
+        ...     timeout=10,
+        ... ).status_code
+        200
+    """
+
+    def __init__(self, *, status_code: int = 200) -> None:
+        """Prepara el doble con el código HTTP a devolver.
+
+        Args:
+            status_code: Código que devolverá `post` (por defecto 200 = aceptado).
+        """
+        self.calls: list[GraphCall] = []
+        self._status_code = status_code
+
+    def post(
+        self, url: str, *, json: dict[str, object], headers: dict[str, str], timeout: float
+    ) -> Response:
+        """Captura la llamada y devuelve una respuesta sintética.
+
+        Args:
+            url: URL del endpoint (capturada en `calls`).
+            json: Cuerpo JSON (capturado en `calls`).
+            headers: Cabeceras (capturadas en `calls`).
+            timeout: Segundos de espera (capturado en `calls`).
+
+        Returns:
+            `Response` fake solo con `status_code` (el adapter solo lee eso).
+        """
+        self.calls.append(
+            GraphCall(url=url, json=dict(json), headers=dict(headers), timeout=timeout)
+        )
+        respuesta = Response()
+        respuesta.status_code = self._status_code
+        return respuesta
