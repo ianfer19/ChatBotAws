@@ -14,6 +14,95 @@ from shared.ports import ChannelMessage
 
 
 @runtime_checkable
+class CredentialsPort(Protocol):
+    """Credenciales por comercio en SSM SecureString (decisión 2 del Paso 9).
+
+    Rutas réplica del legacy (`whatsapp_orchestrator_service/app.py:293`):
+    `/sahagun/<canal>/<tenant_id>/access_token|app_secret`. Los valores jamás se
+    loguean ni se devuelven al cliente del admin: solo el consumer de envíos los usa.
+    """
+
+    def get_access_token(self, *, channel: Channel, tenant_id: str) -> str:
+        """Devuelve el access token del comercio para ese canal.
+
+        Args:
+            channel: Canal de Meta (whatsapp/instagram/messenger).
+            tenant_id: Comercio dueño de las credenciales.
+
+        Returns:
+            El token tal cual está guardado en SSM.
+
+        Raises:
+            CredentialNotFoundError: Si el parámetro no existe (comercio sin
+                credenciales en ese canal).
+            ValidationError: Si falta `tenant_id`.
+            ToolError/ToolTimeoutError: Si SSM falla o no responde a tiempo.
+        """
+        ...
+
+    def put_access_token(self, *, channel: Channel, tenant_id: str, token: str) -> None:
+        """Guarda (o sobrescribe) el access token del comercio.
+
+        Args:
+            channel: Canal de Meta.
+            tenant_id: Comercio dueño.
+            token: Valor del token (SecureString; jamás se registra).
+
+        Returns:
+            None; la operación es idempotente (`Overwrite`).
+
+        Raises:
+            ValidationError: Si falta `tenant_id` o `token`.
+            ToolError/ToolTimeoutError: Si SSM falla.
+        """
+        ...
+
+    def put_app_secret(self, *, channel: Channel, tenant_id: str, secret: str) -> None:
+        """Guarda (o sobrescribe) el app secret del comercio para ese canal.
+
+        Args:
+            channel: Canal de Meta.
+            tenant_id: Comercio dueño.
+            secret: Valor del secreto (SecureString; jamás se registra).
+
+        Returns:
+            None; la operación es idempotente (`Overwrite`).
+
+        Raises:
+            ValidationError: Si falta `tenant_id` o `secret`.
+            ToolError/ToolTimeoutError: Si SSM falla.
+        """
+        ...
+
+
+@runtime_checkable
+class ChannelMappingWriterPort(Protocol):
+    """Alta de mapeo canal→tenant desde el endpoint admin (Fase 5).
+
+    El webhook solo LEE el mapeo (`TenantResolverPort`); esta escritura existe para
+    que un comercio pueda darse de alta en dev sin tocar DynamoDB a mano. En prod el
+    alta migrará al backend legacy/administrativo (decisión 1: reemplazo gradual).
+    """
+
+    def register(self, *, channel: Channel, emitter_id: str, tenant_id: str) -> None:
+        """Crea o actualiza el mapeo del emisor hacia ese comercio.
+
+        Args:
+            channel: Canal de Meta del emisor.
+            emitter_id: Id del emisor (`phone_number_id`, id de página).
+            tenant_id: Comercio dueño (`store_id`).
+
+        Returns:
+            None; idempotente (sobrescribe el ítem `METADATA`).
+
+        Raises:
+            ValidationError: Si falta cualquiera de los tres valores.
+            ToolError/ToolTimeoutError: Si DynamoDB falla.
+        """
+        ...
+
+
+@runtime_checkable
 class NormalizerPort(Protocol):
     """Normalización del payload crudo a `ChannelMessage` (entrada del pipeline).
 

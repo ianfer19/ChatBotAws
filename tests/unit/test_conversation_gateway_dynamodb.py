@@ -14,7 +14,11 @@ from botocore.exceptions import ClientError, ConnectTimeoutError
 
 from shared.contracts.types import Channel
 from shared.errors import TenantNotFoundError, ToolError, ToolTimeoutError, ValidationError
-from slices.conversation_gateway.domain.ports import DeduplicationPort, TenantResolverPort
+from slices.conversation_gateway.domain.ports import (
+    ChannelMappingWriterPort,
+    DeduplicationPort,
+    TenantResolverPort,
+)
 from slices.conversation_gateway.infrastructure.dynamodb import (
     DynamoChannelMapping,
     DynamoDeduplication,
@@ -36,20 +40,27 @@ def _client_error(codigo: str) -> ClientError:
 
 
 class _TablaMapeoFalsa:
-    """Doble de `TablaLectura`: devuelve el ítem configurado y registra las claves."""
+    """Doble de `TablaMapeo`: devuelve el ítem configurado y registra las claves."""
 
     def __init__(
-        self, *, item: Mapping[str, Any] | None = None, error: Exception | None = None
+        self,
+        *,
+        item: Mapping[str, Any] | None = None,
+        error: Exception | None = None,
+        put_error: Exception | None = None,
     ) -> None:
         """Prepara el doble.
 
         Args:
             item: Ítem a devolver (`None` = no existe).
             error: Excepción a lanzar en `get_item` (fallo de red/servicio).
+            put_error: Excepción a lanzar en `put_item` (alta del mapeo).
         """
         self.item = dict(item) if item is not None else None
         self.error = error
+        self.put_error = put_error
         self.keys: list[dict[str, str]] = []
+        self.puts: list[dict[str, Any]] = []
 
     def get_item(self, *, Key: Mapping[str, str], ConsistentRead: bool = True) -> dict[str, Any]:
         """Registra la clave leída y devuelve el ítem o el error configurado.
@@ -69,6 +80,23 @@ class _TablaMapeoFalsa:
         if self.error is not None:
             raise self.error
         return {"Item": dict(self.item)} if self.item else {}
+
+    def put_item(self, *, Item: Mapping[str, Any]) -> dict[str, Any]:
+        """Registra el ítem escrito por `register` (alta del mapeo).
+
+        Args:
+            Item: Atributos del ítem (`PK`, `SK`, `store_id`, `channel`).
+
+        Returns:
+            Respuesta vacía de éxito.
+
+        Raises:
+            Exception: La falla inyectada en el constructor.
+        """
+        self.puts.append(dict(Item))
+        if self.put_error is not None:
+            raise self.put_error
+        return {}
 
 
 class _TablaDedupFalsa:
@@ -197,6 +225,49 @@ def test_mapeo_cumple_tenant_resolver_port() -> None:
         table=_TablaMapeoFalsa(item={"store_id": _TENANT}),
     )
     assert isinstance(mapping, TenantResolverPort)
+
+
+# --- DynamoChannelMapping.register (alta del admin, Fase 5) ---------------------------------
+
+
+def test_register_escribe_el_ite_del_legacy() -> None:
+    """Alta admin: `WA_CONFIG#<id>|METADATA` con `store_id` y `channel`."""
+    tabla = _TablaMapeoFalsa()
+    mapping = DynamoChannelMapping(table_name="chatbot_channel_mapping_dev", table=tabla)
+    mapping.register(channel="whatsapp", emitter_id="1000", tenant_id=_TENANT)
+    assert tabla.puts == [
+        {"PK": "WA_CONFIG#1000", "SK": "METADATA", "store_id": _TENANT, "channel": "whatsapp"}
+    ]
+
+
+def test_register_sin_valores_es_validation_error() -> None:
+    """El alta exige canal, emisor y comercio (defensa en capas con el modelo)."""
+    tabla = _TablaMapeoFalsa()
+    mapping = DynamoChannelMapping(table_name="chatbot_channel_mapping_dev", table=tabla)
+    with pytest.raises(ValidationError):
+        mapping.register(channel="whatsapp", emitter_id="", tenant_id=_TENANT)
+    with pytest.raises(ValidationError):
+        mapping.register(channel="whatsapp", emitter_id="1000", tenant_id="")
+    assert tabla.puts == []
+
+
+def test_register_traduce_errores_de_dynamodb() -> None:
+    """Un fallo del servicio en el alta se traduce como el resto del adapter."""
+    mapping = DynamoChannelMapping(
+        table_name="chatbot_channel_mapping_dev",
+        table=_TablaMapeoFalsa(put_error=_client_error("InternalServerError")),
+    )
+    with pytest.raises(ToolError):
+        mapping.register(channel="whatsapp", emitter_id="1000", tenant_id=_TENANT)
+
+
+def test_mapping_cumple_channel_mapping_writer_port() -> None:
+    """Satisface también el puerto de escritura del admin (misma tabla)."""
+    mapping = DynamoChannelMapping(
+        table_name="chatbot_channel_mapping_dev",
+        table=_TablaMapeoFalsa(),
+    )
+    assert isinstance(mapping, ChannelMappingWriterPort)
 
 
 # --- DynamoDeduplication --------------------------------------------------------------------

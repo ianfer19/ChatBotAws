@@ -1,4 +1,4 @@
-"""Dobles en memoria del gateway: tenant, dedup, canal y bus (previo a la infraestructura).
+"""Dobles en memoria del gateway: tenant, dedup, credenciales, canal y bus.
 
 Mismo papel que `orders/infrastructure/in_memory.py`: probar el flujo del webhook sin
 DynamoDB, SSM, SQS ni llamadas reales a Meta (ROADMAP §2.4). El aislamiento por tenant
@@ -11,6 +11,7 @@ from shared.contracts.messages import OutboundMessage
 from shared.contracts.types import Channel
 from shared.errors import TenantNotFoundError, ValidationError
 from shared.ports import ChannelMessage
+from slices.conversation_gateway.domain.errors import CredentialNotFoundError
 
 
 class InMemoryTenantResolver:
@@ -53,6 +54,132 @@ class InMemoryTenantResolver:
                 details={"channel": channel},
             )
         return self._mapping[clave]
+
+    def register(self, *, channel: Channel, emitter_id: str, tenant_id: str) -> None:
+        """Añade (o sobrescribe) el mapeo del emisor hacia ese comercio.
+
+        Args:
+            channel: Canal de Meta del emisor.
+            emitter_id: Id del emisor Meta.
+            tenant_id: Comercio dueño.
+
+        Returns:
+            None; idempotente como el ítem real de DynamoDB.
+
+        Raises:
+            ValidationError: Si falta cualquiera de los tres valores.
+        """
+        if not channel or not emitter_id or not tenant_id:
+            raise ValidationError("faltan channel, emitter_id o tenant_id en el mapeo")
+        self._mapping[(channel, emitter_id)] = tenant_id
+
+
+class InMemoryCredentialStore:
+    """`CredentialsPort` con un diccionario en memoria (nunca valores reales).
+
+    Example:
+        >>> from slices.conversation_gateway.infrastructure.in_memory import InMemoryCredentialStore
+        >>> store = InMemoryCredentialStore()
+        >>> store.put_access_token(channel="whatsapp", tenant_id="Sede_Elite_01", token="tok")
+        >>> store.get_access_token(channel="whatsapp", tenant_id="Sede_Elite_01")
+        'tok'
+    """
+
+    def __init__(self) -> None:
+        """Guarda los secretos como `(canal, tenant, nombre) → valor`."""
+        self._secretos: dict[tuple[Channel, str, str], str] = {}
+
+    def get_access_token(self, *, channel: Channel, tenant_id: str) -> str:
+        """Devuelve el access token guardado (o `CredentialNotFoundError`).
+
+        Args:
+            channel: Canal de Meta.
+            tenant_id: Comercio dueño.
+
+        Returns:
+            El token registrado por el doble.
+
+        Raises:
+            CredentialNotFoundError: Si no hay token para ese par.
+            ValidationError: Si falta `tenant_id`.
+        """
+        return self._leer(channel=channel, tenant_id=tenant_id, nombre="access_token")
+
+    def put_access_token(self, *, channel: Channel, tenant_id: str, token: str) -> None:
+        """Registra el access token en el diccionario.
+
+        Args:
+            channel: Canal de Meta.
+            tenant_id: Comercio dueño.
+            token: Valor del token.
+
+        Returns:
+            None.
+
+        Raises:
+            ValidationError: Si falta `tenant_id` o `token`.
+        """
+        self._escribir(channel=channel, tenant_id=tenant_id, nombre="access_token", valor=token)
+
+    def put_app_secret(self, *, channel: Channel, tenant_id: str, secret: str) -> None:
+        """Registra el app secret en el diccionario.
+
+        Args:
+            channel: Canal de Meta.
+            tenant_id: Comercio dueño.
+            secret: Valor del secreto.
+
+        Returns:
+            None.
+
+        Raises:
+            ValidationError: Si falta `tenant_id` o `secret`.
+        """
+        self._escribir(channel=channel, tenant_id=tenant_id, nombre="app_secret", valor=secret)
+
+    def _leer(self, *, channel: Channel, tenant_id: str, nombre: str) -> str:
+        """Busca un valor secreto por la clave compuesta.
+
+        Args:
+            channel: Canal de Meta.
+            tenant_id: Comercio dueño.
+            nombre: `access_token` o `app_secret`.
+
+        Returns:
+            El valor registrado.
+
+        Raises:
+            CredentialNotFoundError: Si no existe esa clave.
+            ValidationError: Si falta `tenant_id`.
+        """
+        if not tenant_id:
+            raise ValidationError("tenant_id vacio en el doble de credenciales")
+        clave = (channel, tenant_id, nombre)
+        if clave not in self._secretos:
+            raise CredentialNotFoundError(
+                "credencial ausente en el doble",
+                details={"channel": channel, "tenant_id": tenant_id, "parametro": nombre},
+            )
+        return self._secretos[clave]
+
+    def _escribir(self, *, channel: Channel, tenant_id: str, nombre: str, valor: str) -> None:
+        """Registra un valor secreto por la clave compuesta.
+
+        Args:
+            channel: Canal de Meta.
+            tenant_id: Comercio dueño.
+            nombre: `access_token` o `app_secret`.
+            valor: Valor del secreto.
+
+        Returns:
+            None.
+
+        Raises:
+            ValidationError: Si falta `tenant_id` o el valor.
+        """
+        if not tenant_id or not valor:
+            raise ValidationError("faltan tenant_id o valor en el doble de credenciales")
+        self._secretos[(channel, tenant_id, nombre)] = valor
 
 
 class InMemoryDeduplication:

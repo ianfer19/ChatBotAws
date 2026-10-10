@@ -1,8 +1,8 @@
 # Slice: conversation_gateway
 
-> Paso de implementación: **Paso 9**. Estado: **Fases 1–4 hechas** (dominio, firma,
-> parsers, tenant + dedup + encolado); fases 5–7 pendientes. Es la puerta única de
-> entrada de la plataforma.
+> Paso de implementación: **Paso 9**. Estado: **Fases 1–5 hechas** (dominio, firma,
+> parsers, tenant + dedup + encolado, credenciales + admin); fases 6–7 pendientes. Es
+> la puerta única de entrada de la plataforma.
 
 ## Responsabilidad
 
@@ -30,9 +30,13 @@ intenciones, NO ejecuta tools de negocio, NO contiene lógica de ventas/citas/pe
   - `NormalizerPort` (`domain/ports.py`): vista de entrada de `ChannelPort` —
     `normalize_inbound` (implementado por `MetaChannel` en `infrastructure/channels/`).
   - `TenantResolverPort`: mapeo canal→tenant replicado del legacy
-    (`DynamoChannelMapping`), `TODO(verify)` del mecanismo de sincronización.
+    (`DynamoChannelMapping`), `TODO(verify)` del mecanismo de sincronización;
+    el mismo adapter implementa `ChannelMappingWriterPort.register` (alta del admin).
   - `DeduplicationPort`: `register_once` (reclamación atómica) + `release` (rollback si
     el encolado falla; sin esto, el reintento de Meta se perdería como duplicado).
+  - `CredentialsPort` (`domain/ports.py`): access token/app secret por comercio en SSM
+    (`SsmCredentialStore`), rutas réplica del legacy
+    `/sahagun/<canal>/<tenant>/access_token|app_secret`.
   - `EventBusPort` de `shared/ports/` (implementado por `SQSEventBus` de
     `adapters/sqs/`).
 
@@ -44,7 +48,8 @@ intenciones, NO ejecuta tools de negocio, NO contiene lógica de ventas/citas/pe
 | SQS (cola de entrada) + DLQ | Desacoplar recepción de procesamiento y absorber picos (`inbound.message` con `{event, payload}`) | 9 |
 | DynamoDB `chatbot_channel_mapping` | Mapeo id de emisor Meta → `store_id` (claves exactas del legacy `WA_CONFIG#<id>\|METADATA`, `IG_CONFIG#`, `FB_CONFIG#`) | 9 |
 | DynamoDB `chatbot_processed_messages` | Deduplicación: `MSG_PROCESSED#<message_id>\|DEDUP#<tenant_id>` con `attribute_not_exists(PK)` y TTL 24 h | 9 |
-| Secrets Manager/SSM | Secreto de verificación y tokens Meta (por tenant) | 5 (credenciales) |
+| SSM SecureString `/sahagun/<canal>/<tenant>/…` | Credenciales por comercio (`access_token`/`app_secret`); réplica de las rutas del legacy; los valores jamás se loguean ni salen del adaptador | 5 |
+| API Gateway HTTP (`POST /admin/channels`) | Alta de canal en dev/staging con token propio mínimo (sin Meta validation, `TODO(decision)`); **no existe en prod** | 5 |
 
 ## Reglas de negocio clave
 
@@ -64,6 +69,9 @@ intenciones, NO ejecuta tools de negocio, NO contiene lógica de ventas/citas/pe
    (ADR 0009); el despacho es `detect_channel` + registro `parse_event`.
 6. Nunca se publica un evento sin resolver **todos** los tenants del envelope (dos pasos,
    sin encolado parcial).
+7. El endpoint admin solo acepta `POST` con su token propio comparado en tiempo
+   constante (`CHATBOT_ADMIN_TOKEN`); el alta es idempotente (mapeo primero,
+   credenciales después) y en prod no está desplegado (alta vía legacy).
 
 ## Tools expuestas al LLM
 
@@ -78,14 +86,18 @@ mensaje ya contextualizado.
 | `TenantNotFoundError` | Sin mapeo de canal (interno del resolve) | `200 EVENT_TENANT_UNKNOWN`, sin encolar |
 | `DuplicateMessageError` | Reenvío íntegro de Meta | `200 EVENT_DUPLICATED` (idempotencia) |
 | `ValidationError` | Cuerpo malformado o configuración faltante (fail fast) | HTTP 400 / excepción al arrancar |
-| `ToolError`/`ToolTimeoutError` | Fallo de SQS o DynamoDB | Reintento de Meta + `release` de la dedup |
+| `CredentialNotFoundError` | Comercio sin token en SSM (envíos, Fase 6) | 502 interno; nunca se muestra al usuario |
+| `AdminUnauthorizedError` | Token del admin ausente o erróneo | HTTP 401 sin detalle del motivo |
+| `AdminMethodNotAllowedError` | Método distinto de `POST` en el admin | HTTP 405 |
+| `ToolError`/`ToolTimeoutError` | Fallo de SQS, DynamoDB o SSM | Reintento de Meta + `release` de la dedup |
 | Timeout de canal | Meta no responde (Fase 6) | Retry acotado + log; la respuesta se encola |
 
 ## Cómo probarlo
 
 - Unit (`tests/unit/`): verificación de firma con payload falso, resolución de tenant con
   mapeo presente/ausente, deduplicación, flujo completo
-  (`test_conversation_gateway_flow.py`) y adapters (`*_dynamodb.py`,
+  (`test_conversation_gateway_flow.py`), admin (`test_conversation_gateway_admin.py`),
+  credenciales (`test_conversation_gateway_ssm.py`) y adapters (`*_dynamodb.py`,
   `test_adapters_sqs_event_bus.py`) con dobles, sin AWS.
 - Contract (`tests/contract/test_channel_parsers.py`): esquema del payload de webhook de
   los 3 canales (textos, media, estados de lectura).

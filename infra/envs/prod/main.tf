@@ -83,7 +83,10 @@ module "aurora" {
 module "iam" {
   source      = "../../modules/iam"
   environment = "prod"
-  functions   = ["conversation_gateway", "supervisor"]
+  # Sin `conversation_admin` en prod: el alta de canales en producción viene del
+  # backend legacy/administrativo (decisión 1 del Paso 9, reemplazo gradual) y el
+  # endpoint admin mínimo es solo para dev/staging (decisión 6).
+  functions = ["conversation_gateway", "supervisor"]
 
   # Least-privilege por función: el gateway solo encola y consulta su
   # mapeo/deduplicación; solo el supervisor habla con Bedrock.

@@ -6,7 +6,8 @@ omitido). **Paso 6.**
 
 Módulos cableados: `kms`, `network`, `s3`, `dynamodb`, `sqs` (cola de eventos +
 DLQ del gateway, Paso 9), `aurora`, `iam`, `lambda` (`conversation_gateway`,
-`supervisor`) y `apigw` (`/webhook`).
+`conversation_admin` —alta de canales con `-var admin_token=…`, solo dev/staging—
+y `supervisor`) y `apigw` (`/webhook` y `POST /admin/channels`).
 
 ## Uso
 

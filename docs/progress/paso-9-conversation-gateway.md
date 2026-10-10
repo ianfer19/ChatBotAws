@@ -5,8 +5,8 @@
 > sin releer el código. Criterio de cierre del paso:
 > [ROADMAP §1 fila 9](../ROADMAP.md). Decisiones de alcance: este mismo archivo.
 >
-> **Estado global: PASO 9 EN CURSO — Fase 4 COMPLETA (4 de 7). Siguiente: Fase 5
-> (credenciales SSM + endpoint admin + `verify_credentials`).**
+> **Estado global: PASO 9 EN CURSO — Fase 5 COMPLETA (5 de 7). Siguiente: Fase 6
+> (consumer: persistencia + supervisor + envío de respuestas + zips).**
 
 ## Decisiones cerradas con el usuario (2026-10-10)
 
@@ -49,7 +49,7 @@
 | 2 | Webhook: `GET hub.challenge` + `POST` con firma HMAC | `[x]` |
 | 3 | Normalización: parsers de los 3 canales → `ChannelMessage` | `[x]` |
 | 4 | Tenant + dedup + encolado + módulo SQS/IAM (Terraform) | `[x]` |
-| 5 | Credenciales (SSM) + endpoint admin + `verify_credentials` | `[ ]` |
+| 5 | Credenciales (SSM) + endpoint admin + `verify_credentials` | `[x]` |
 | 6 | Consumer (persistencia + supervisor) + envío de respuestas + zips | `[ ]` |
 | 7 | Cierre: AGENTS, ROADMAP, checklist, batería final | `[ ]` |
 
@@ -173,6 +173,52 @@
   `test_shared_contracts.py` (4 de `QueuedMessage`) — **en verde**.
 - [x] Batería verde + commit `feat(paso-9): tenant dedup y encolado del gateway`.
 
+## Fase 5 — credenciales SSM + endpoint admin  (hecha)
+
+- Refinamiento: `verify_credentials` del `ChannelPort` se interpreta como
+  **existencia de credenciales** (docstring del puerto) y se implementa en la
+  Fase 6 junto con `send` (comparten el cliente HTTP de Graph API). La
+  validación contra Meta **antes** de guardar queda `TODO(decision)` (decisión 6:
+  el admin de dev guarda sin verificar).
+- [x] `domain/errors.py`: `CredentialNotFoundError` (502 interno, nunca al
+  usuario), `AdminUnauthorizedError` (401 sin detalle), `AdminMethodNotAllowedError` (405).
+- [x] `domain/ports.py`: `CredentialsPort` (`get_access_token` +
+  `put_access_token`/`put_app_secret`) y `ChannelMappingWriterPort.register`
+  (alta del admin sobre la misma clave del legacy).
+- [x] `infrastructure/ssm.py`: `SsmCredentialStore` — rutas réplica del legacy
+  `/sahagun/<canal>/<tenant>/access_token|app_secret` (`whatsapp_orchestrator_service/app.py:293`),
+  alias `messenger→facebook` (`TODO(verify)` contra los parámetros reales),
+  `SecureString`+`Overwrite`, `WithDecryption` al leer; `ParameterNotFound` →
+  `CredentialNotFoundError` (vía `ClientError`, no hay excepción propia en
+  botocore); timeouts → `ToolTimeoutError`; **los valores nunca se loguean**.
+- [x] `DynamoChannelMapping.register` (misma `TablaMapeo`: `get_item`+`put_item`;
+  ítem `store_id`+`channel`) + `InMemoryCredentialStore` y `register` en el
+  doble de resolver.
+- [x] `application/admin.py`: `AdminChannelRequest` (Pydantic estricto: canal de
+  los 3, ids no vacíos, secretos opcionales pero no en blanco, `extra=forbid`) +
+  `AdminChannelsUseCase` (mapeo primero, credenciales después; ambas
+  idempotentes → reintentable).
+- [x] `handler/lambda_admin.py`: `POST /admin/channels` — token propio mínimo
+  comparado con `hmac.compare_digest` (decisión 6), 201 `{"ok": true}`, 401/405/400
+  con código estable, 502 para servicios caídos, `receptor`/`caso` inyectable y
+  fail fast de `CHATBOT_ADMIN_TOKEN` + `CHATBOT_CHANNEL_MAPPING_TABLE` antes de
+  crear boto3.
+- [x] Settings: `CHATBOT_ADMIN_TOKEN` (`TODO(verify)`: inyectarlo en prod desde
+  Secrets Manager/SSM sin el estado de TF).
+- [x] Terraform (dev y staging): Lambda `conversation_admin` (mismo zip,
+  `handler.lambda_admin.main`), ruta `POST /admin/channels`, IAM
+  least-privilege (`dynamodb:PutItem` sobre el mapeo + `ssm:Get/PutParameter`
+  bajo `/sahagun/*`) y variable sensible `admin_token`. **Prod sin admin**
+  (decisión 1: el alta en prod viene del legacy; superficie mínima).
+  `terraform validate` en verde en los 3 entornos.
+- [x] Tests nuevos: `test_conversation_gateway_ssm.py` (12: rutas por canal +
+  alias, lectura/escritura, ausente vs. fallo, timeouts, sin secretos en logs,
+  conformance) + `test_conversation_gateway_admin.py` (18: modelo, caso de uso,
+  orden mapeo→secretos, handler 201/401/405/400/502/fail-fast/sin token en
+  respuestas, dobles conformance) + `test_conversation_gateway_dynamodb.py` (+4
+  de `register`).
+- [x] Batería verde + commit `feat(paso-9): credenciales ssm y endpoint admin`.
+
 ## Criterios de hecho del ROADMAP (§1 fila 9)
 
 - [ ] **Prueba con tráfico real de los 3 canales** → **pendiente de entorno dev**
@@ -193,5 +239,7 @@
   Meta; empaquetado de los zips de Lambda.
 - `TODO(decision)`: si el pipeline nuevo merece un ADR propio (se valora en la Fase 7:
   hoy cubre ADR 0006/0009/0003); respuesta fija al usuario cuando no hay mapeo de
-  tenant (imposible sin credenciales del canal → Fase 5). El TTL del dedup quedó
-  cerrado en 24 h (heredado del legacy).
+  tenant (imposible sin credenciales del canal → Fase 5: el admin ya da de alta, pero
+  la respuesta fija sigue pendiente de credenciales por tenant); validar contra Meta
+  las credenciales **antes** de guardarlas en el admin (decisión 6 lo pospuso). El TTL
+  del dedup quedó cerrado en 24 h (heredado del legacy).

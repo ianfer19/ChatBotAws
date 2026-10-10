@@ -28,3 +28,33 @@ class DuplicateMessageError(AppError):
 
     code = "duplicate_message"
     http_status = 200
+
+
+class CredentialNotFoundError(AppError):
+    """El comercio no tiene credenciales (access token) en SSM para ese canal.
+
+    El envío de respuestas (Fase 6) no puede hablar con Meta sin token: el error es
+    interno del adaptador y nunca se muestra al usuario final (el consumer lo traduce
+    a un reintento/alarma, no a un mensaje del bot).
+    """
+
+    code = "credential_not_found"
+    http_status = 502
+
+
+class AdminUnauthorizedError(AppError):
+    """El endpoint admin no recibió el token propio mínimo (decisión 6, dev).
+
+    El detalle del motivo jamás sale del handler: solo el código estable, para que
+    un atacante no distinga «sin header» de «token malo».
+    """
+
+    code = "unauthorized"
+    http_status = 401
+
+
+class AdminMethodNotAllowedError(AppError):
+    """El endpoint admin solo acepta `POST /admin/channels`."""
+
+    code = "method_not_allowed"
+    http_status = 405

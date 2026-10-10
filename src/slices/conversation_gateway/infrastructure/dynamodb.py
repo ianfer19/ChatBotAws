@@ -46,8 +46,8 @@ _CODIGO_CONDICIONAL = "ConditionalCheckFailedException"
 
 
 @runtime_checkable
-class TablaLectura(Protocol):
-    """Subconjunto de `Table` (recursos de boto3) que lee el mapeo de canal."""
+class TablaMapeo(Protocol):
+    """Subconjunto de `Table` (recursos de boto3) que lee y escribe el mapeo de canal."""
 
     def get_item(self, *, Key: Mapping[str, str], ConsistentRead: bool = ...) -> dict[str, Any]:
         """Lee un ítem por clave.
@@ -58,6 +58,21 @@ class TablaLectura(Protocol):
 
         Returns:
             Diccionario con `Item` si existe; vacío si no.
+
+        Raises:
+            ClientError: Si el servicio devuelve un error de negocio.
+            BotoCoreError: Si falla la red, el timeout o la región.
+        """
+        ...
+
+    def put_item(self, *, Item: Mapping[str, Any]) -> dict[str, Any]:
+        """Escribe (o sobrescribe) el ítem del mapeo.
+
+        Args:
+            Item: Atributos del ítem (`PK`, `SK`, `store_id`, `channel`).
+
+        Returns:
+            Respuesta de DynamoDB.
 
         Raises:
             ClientError: Si el servicio devuelve un error de negocio.
@@ -172,7 +187,10 @@ def _traducir(exc: Exception, *, operacion: str, detalle: str) -> NoReturn:
 
 
 class DynamoChannelMapping:
-    """`TenantResolverPort` sobre la tabla `chatbot_channel_mapping` (replica del legacy).
+    """`TenantResolverPort` + `ChannelMappingWriterPort` sobre `chatbot_channel_mapping`.
+
+    Réplica del legacy (`WA_CONFIG#<id>|METADATA`): el webhook solo lee; el endpoint
+    admin escribe el mismo ítem (`store_id` + `channel`) desde la Fase 5.
 
     Args:
         table_name: Nombre real de la tabla de mapeo.
@@ -188,7 +206,7 @@ class DynamoChannelMapping:
         *,
         table_name: str,
         timeout_seconds: int = 5,
-        table: TablaLectura | None = None,
+        table: TablaMapeo | None = None,
     ) -> None:
         if not table_name:
             raise ValidationError("nombre de tabla de mapeo de canal vacio")
@@ -230,6 +248,39 @@ class DynamoChannelMapping:
             extra={"channel": channel, "tenant_id": tenant_id},
         )
         return tenant_id
+
+    def register(self, *, channel: Channel, emitter_id: str, tenant_id: str) -> None:
+        """Crea o actualiza el mapeo del emisor hacia ese comercio (idempotente).
+
+        Args:
+            channel: Canal de Meta del emisor.
+            emitter_id: Id del emisor (`phone_number_id`, id de página).
+            tenant_id: Comercio dueño (`store_id`).
+
+        Returns:
+            None; sobrescribe el ítem `METADATA` completo (alta repetida = mismo estado).
+
+        Raises:
+            ValidationError: Si falta cualquiera de los tres valores.
+            ToolError: Si DynamoDB rechaza la escritura.
+            ToolTimeoutError: Si la escritura excede el timeout.
+        """
+        if not channel or not emitter_id or not tenant_id:
+            raise ValidationError("faltan channel, emitter_id o tenant_id en el mapeo")
+        item = {
+            "PK": f"{_PREFIJOS[channel]}#{emitter_id}",
+            "SK": _SK_MAPEO,
+            "store_id": tenant_id,
+            "channel": channel,
+        }
+        try:
+            self._tabla.put_item(Item=item)
+        except (BotoCoreError, ClientError) as exc:
+            _traducir(exc, operacion="mapeo_alta", detalle=emitter_id)
+        logger.info(
+            "dynamodb.mapeo_registrado",
+            extra={"channel": channel, "tenant_id": tenant_id},
+        )
 
 
 class DynamoDeduplication:

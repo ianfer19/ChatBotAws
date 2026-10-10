@@ -81,7 +81,7 @@ module "aurora" {
 module "iam" {
   source      = "../../modules/iam"
   environment = "staging"
-  functions   = ["conversation_gateway", "supervisor"]
+  functions   = ["conversation_gateway", "conversation_admin", "supervisor"]
 
   # Least-privilege por función: el gateway solo encola y consulta su
   # mapeo/deduplicación; solo el supervisor habla con Bedrock.
@@ -120,6 +120,34 @@ module "iam" {
           ]
           Resource = [
             "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/${module.dynamodb.table_names["chatbot_processed_messages"]}",
+          ]
+        },
+      ]
+    })
+    conversation_admin = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Sid    = "AltaMapeoCanalTenant"
+          Effect = "Allow"
+          Action = [
+            "dynamodb:PutItem",
+          ]
+          Resource = [
+            "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/${module.dynamodb.table_names["chatbot_channel_mapping"]}",
+          ]
+        },
+        {
+          Sid    = "CredencialesDeCanal"
+          Effect = "Allow"
+          Action = [
+            "ssm:GetParameter",
+            "ssm:PutParameter",
+          ]
+          Resource = [
+            # Rutas réplica del legacy (`/sahagun/<canal>/<tenant>/...`); el valor
+            # es SecureString con la KMS gestionada por SSM (sin llave propia).
+            "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/sahagun/*",
           ]
         },
       ]
@@ -179,6 +207,18 @@ locals {
         CHATBOT_PROCESSED_MESSAGES_TABLE = module.dynamodb.table_names["chatbot_processed_messages"]
       }
     }
+    conversation_admin = {
+      handler  = "handler.lambda_admin.main"
+      zip_path = "../../../artifacts/conversation_gateway.zip"
+      timeout  = 10
+      env = {
+        # `Settings` exige el modelo aunque el admin no lo use (validador global).
+        CHATBOT_ENVIRONMENT           = "staging"
+        CHATBOT_BEDROCK_MODEL_ID      = local.model_id
+        CHATBOT_ADMIN_TOKEN           = var.admin_token
+        CHATBOT_CHANNEL_MAPPING_TABLE = module.dynamodb.table_names["chatbot_channel_mapping"]
+      }
+    }
     supervisor = {
       handler     = "handler.main"
       zip_path    = "../../../artifacts/supervisor.zip"
@@ -209,5 +249,6 @@ module "apigw" {
   routes = {
     webhook_get  = { method = "GET", path = "/webhook", function = "conversation_gateway" }
     webhook_post = { method = "POST", path = "/webhook", function = "conversation_gateway" }
+    admin_post   = { method = "POST", path = "/admin/channels", function = "conversation_admin" }
   }
 }

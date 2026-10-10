@@ -71,6 +71,11 @@ class Settings(BaseSettings):
     events_queue_url: str = Field(default="")
     channel_mapping_table: str = Field(default="")
     processed_messages_table: str = Field(default="")
+    # Paso 9 (admin, Fase 5): token propio mínimo del `POST /admin/channels`
+    # (decisión 6: sin authorizer completo en dev). Lo exige solo la Lambda del
+    # admin; comparado en tiempo constante. `TODO(verify)`: moverlo a Secrets
+    # Manager/SSM en prod, igual que los secretos del webhook.
+    admin_token: str = Field(default="")
 
     @model_validator(mode="after")
     def _bedrock_model_id_es_obligatorio(self) -> Self:
