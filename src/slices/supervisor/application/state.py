@@ -30,10 +30,13 @@ class SupervisorState(TypedDict):
         pending_outcome: Resolución de un draft pendiente hecha por `resolve_pending`
             (`affirmed`, `denied` u `undoed`); solo presente cuando el router cerró el
             turno sin pasar por `classify`.
+        summary: Resumen rodante de los turnos que desbordaron la ventana (Paso 8);
+            lo escribe `window_history` y lo conserva el checkpointer entre turnos.
     """
 
     message: InboundMessage
     history: NotRequired[list[LLMMessage]]
+    summary: NotRequired[str | None]
     context: NotRequired[CustomerContext]
     intent: NotRequired[Intent]
     confidence: NotRequired[float]

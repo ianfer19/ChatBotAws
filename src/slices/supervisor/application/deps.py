@@ -32,6 +32,8 @@ class Deps:
         confirmer: Resolución de drafts (affirm/deny/undo) que la composición despacha
             al especialista dueño del draft; `None` deja los turnos en el flujo
             normal (retrocompatible con composiciones previas).
+        history_window_size: Tamaño máximo de la ventana de historial que ve el
+            clasificador (Paso 8); lo que desborda se reduce a resumen.
     """
 
     llm: LLMPort
@@ -42,3 +44,4 @@ class Deps:
     faq_graph: SpecialistGraphPort | None = None
     draft_store: DraftStorePort | None = None
     confirmer: ConfirmerPort | None = None
+    history_window_size: int = 10

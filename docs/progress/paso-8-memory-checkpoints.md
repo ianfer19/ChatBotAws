@@ -5,8 +5,8 @@
 > sin releer el código. Criterio de cierre del paso:
 > [ROADMAP §1 fila 8](../ROADMAP.md). Decisiones de alcance: ADR 0013 (Fase 5).
 >
-> **Estado global: PASO 8 EN CURSO (Fase 1 de 5); siguiente tras el cierre: Paso 9
-> (Conversation gateway).**
+> **Estado global: PASO 8 EN CURSO (Fase 2 de 5 completadas; siguiente: Fase 3 —
+> cableado del checkpointer); tras el cierre: Paso 9 (Conversation gateway).**
 
 ## Decisiones cerradas con el usuario (2026-10-10)
 
@@ -31,7 +31,7 @@
 - [x] **Envelope JSON puro** con el serde de LangGraph (msgpack en base64) para los
       tipos no JSON (datetime, bytes): es lo que exige `MemoryStorePort.payload: str`.
 
-## Fase 1 — checkpointer tras el port  (en curso)
+## Fase 1 — checkpointer tras el port  (hecha)
 
 - [x] `adapters/checkpointer/`: `PortCheckpointSaver(BaseCheckpointSaver)` con
       `get_tuple`/`put`/`put_writes`/`list`/`delete_thread` + versiones `a*` que
@@ -45,13 +45,28 @@
       aislamiento por hilo/tenant, envelope JSON, formatos inválidos, async) +
       `test_adapters_in_memory_memory.py`.
 
-## Fase 2 — política de ventana + resumen  (pendiente)
+## Fase 2 — política de ventana + resumen  (hecha)
 
-- [ ] Ventana de historial `N=10` (`HISTORY_WINDOW_SIZE`, `TODO(verify)`) como regla
-      de negocio en domain del supervisor.
-- [ ] Paso de resumen con LLM barato cuando se desborda la ventana; el resumen solo
-      resume (no decide ni aplica reglas).
-- [ ] Tests de la política (recorte, resumen, degradación si el LLM falla).
+- [x] Regla pura en `supervisor/domain/history.py`: `split_window`
+      (conservados/Desbordados en orden), mensaje sintético de resumen
+      (`RESUMEN_PREFIJO`, rol `assistant` porque `LLMMessage` no admite `system`) y
+      `without_summary` (los resúmenes nunca se re-resumen a sí mismos).
+- [x] Ventana `N=10` configurable: setting `CHATBOT_HISTORY_WINDOW_SIZE`
+      (`Settings.history_window_size`, `ge=1`) → `build_supervisor_graph(
+      history_window_size=...)` → `Deps.history_window_size`.
+- [x] Nodo `window_history` entre `load_context` y `resolve_pending`: recorta la
+      ventana y, solo si hay desbordado, pide el resumen con `TAREA_RESUMEN`
+      (inline en `application/prompts.py`, al estilo de `TAREA_CLASIFICAR`);
+      el resumen viaja como primer mensaje de `history` y se guarda en
+      `SupervisorState.summary` (rodante: el previo se pasa al modelo).
+- [x] Degradación: fallo del proveedor (`ToolError`) o salida vacía → se conserva el
+      resumen previo (o ninguno) y el turno sigue con log
+      `supervisor.summary_failed`; nunca se inventa contenido.
+- [x] Tests: `test_supervisor_history.py` (reglas del dominio + nodo: sin desborde
+      sin llamada al LLM, recorte + resumen, resumen previo, fallo/vacío del LLM,
+      no re-resumir el sintético, ventana personalizada, turno sin historial) +
+      e2e en `test_supervisor_graph.py` (12 mensajes → resumen primero y clasifica
+      con la ventana) + ventana en `test_shared_config.py`.
 
 ## Fase 3 — cableado del checkpointer en el supervisor + evals  (pendiente)
 
@@ -89,7 +104,8 @@
 
 ## Pendientes explícitos (no bloquean el cierre)
 
-- `TODO(verify)`: tamaño de ventana N=10 y cadencia de resumen con evals; si algún
+- `TODO(verify)`: tamaño de ventana N=10 y cadencia de resumen con evals; tope de
+  tokens del resumen (`_MAX_TOKENS_RESUMEN=400`); si algún
   flujo futuro necesita time-travel o ramificación de checkpoints; acciones IAM
   mínimas de la Lambda; límite real de tamaño del payload por conversación.
 - `TODO(decision)`: plazo de retención del estado de conversación (vinculado al

@@ -10,7 +10,10 @@
 > cableado en la composición del REPL (`scripts/chat_citas.py`) y evals e2e de
 > citas/pedidos que pasan por este supervisor. **Paso 7**: el nodo `route_faq`
 > invoca el grafo `faq` de `knowledge_rag` cuando la composición lo inyecta
-> (`faq_graph=None` → `route_pending`, retrocompatible). Handoff y abuso
+> (`faq_graph=None` → `route_pending`, retrocompatible). **Paso 8 (Fase 2)**: nodo
+> `window_history` entre `load_context` y `resolve_pending` que recorta la ventana a
+> `history_window_size` (10 por defecto, `CHATBOT_HISTORY_WINDOW_SIZE`) y reduce lo
+> desbordado a resumen rodante en `SupervisorState.summary`. Handoff y abuso
 > (`sentiment_handoff`, `abuse_protection`) siguen fuera de la ruta (ROADMAP §4).
 
 ## Responsabilidad
@@ -34,10 +37,14 @@ tools de negocio.
 
 - `application/graph.py` → `build_supervisor_graph(llm, context_reader, allowed_bots,
   appointments_graph, orders_graph=None, faq_graph=None, draft_store=None,
-  confirmer=None)`. Nodos en
+  confirmer=None, history_window_size=10)`. Nodos en
   `application/nodes/`:
   `load_context` (exige `history`; lee el contexto con los ids del mensaje y falla si
-  no lo hay), `resolve_pending` (Fase 4 del Paso 5: si hay draft `AWAITING_CONFIRMATION`
+  no lo hay), `window_history` (Paso 8: recorta `history` a la ventana; si hay
+  desbordado pide el resumen con `TAREA_RESUMEN` y lo guarda en `summary`, como
+  primer mensaje sintético de la ventana; fallo del proveedor → conserva el resumen
+  previo y sigue con log `supervisor.summary_failed`, sin desbordado no llama al
+  LLM), `resolve_pending` (Fase 4 del Paso 5: si hay draft `AWAITING_CONFIRMATION`
   en la ranura única de la conversación, decide «sí/no» con match exacto normalizado —
   `domain/pending.py` — o con el LLM de respaldo `TAREA_PENDIENTE` que debe eco el
   `payload_hash`; si solo hay un draft `COMMITTED` con ventana abierta, «cancelar»
@@ -52,13 +59,15 @@ tools de negocio.
   no devuelve `reply`, degrada con `_MSG_SIN_RESPUESTA` + log
   `supervisor.empty_specialist_reply`) y `route_pending` (deja el `RoutedTurn`
   para ventas/faq y para pedidos cuando su grafo no está inyectado).
-  Aristas: `START → load_context → resolve_pending → {classify | END}` (la ruta la fija
+  Aristas: `START → load_context → window_history → resolve_pending →
+  {classify | END}` (la ruta la fija
   `ruta_tras_pendiente`: `END` solo cuando el router escribió `reply`).
   La ruta condicional `ruta_tras_decidir` solo manda a `route_orders`/`route_faq` si
   el grafo correspondiente existe; en caso contrario va a `route_pending`
   (retrocompatible).
 - `SupervisorState` (`application/state.py`): el llamador pone `message` e `history`;
-  el resto lo escriben los nodos (`NotRequired`).
+  `summary` lo escribe `window_history` (resumen rodante, Paso 8); el resto lo
+  escriben los nodos (`NotRequired`).
 - El prompt del clasificador siempre incluye el bloque de contexto y la ventana de
   historial (requisito 7.2; hay tests que fallan si faltan).
 
@@ -81,7 +90,9 @@ tools de negocio.
   Desde la **Fase 4 del Paso 5**: `domain/pending.py` (conjuntos exactos de
   respuesta + plantillas `affirmed`/`denied`/`undoed`), `ConfirmerPort`,
   `application/schemas.py::PendingAnswer`, `nodes/resolve_pending.py` y
-  `prompts.py::TAREA_PENDIENTE`.
+  `prompts.py::TAREA_PENDIENTE`. Desde el **Paso 8**: `domain/history.py`
+  (`split_window`, `summary_message`, `is_summary`, `without_summary`),
+  `nodes/window_history.py` y `prompts.py::TAREA_RESUMEN`.
 
 ## Tablas y recursos AWS
 
@@ -119,9 +130,15 @@ tools de negocio.
    el LLM de respaldo (`TAREA_PENDIENTE`) solo clasifica respuestas libres y debe eco
    el `payload_hash` exacto. Sobre un draft `COMMITTED` dentro de su ventana,
    «cancelar» exacto hace `undo`. Cualquier fallo (hash desfasado, JSON ilegible,
-   proveedor caído, `AppError` del confirmer, draft expirado) degrada con log
-   `supervisor.pending_resolution_failed` al agente normal: nunca se confirma a medias
-   y el saludo sigue teniendo su ruta propia (hay test de regresión con draft esperando).
+    proveedor caído, `AppError` del confirmer, draft expirado) degrada con log
+    `supervisor.pending_resolution_failed` al agente normal: nunca se confirma a medias
+    y el saludo sigue teniendo su ruta propia (hay test de regresión con draft esperando).
+8. **Ventana acotada con resumen (Paso 8)**: el clasificador nunca ve más de
+   `history_window_size` mensajes (10 por defecto); lo que desborda se reduce a un
+   resumen que solo resume — no decide ni aplica reglas — y viaja como primer mensaje
+   de la ventana. El resumen es rodante (el previo se pasa al modelo) y nunca se
+   re-resume a sí mismo; si el proveedor falla, se conserva el resumen previo y el
+   turno sigue (log warn `supervisor.summary_failed`).
 
 ## Tools expuestas al LLM
 
@@ -136,6 +153,7 @@ responde con el saludo plantilla del tenant.
 | `IntentNotAllowedByTenant` | Intención válida pero no en `allowed_bots` | `reply` «Ese servicio aún no está disponible...» + `route_error=intent_not_allowed` + log info |
 | `MissingTurnInputsError` | Turno sin historial, sin texto o sin contexto | El turno **falla** en el primer nodo (regresión 7.2) |
 | Fallo de `LLMPort` | Bedrock caído | Clasificación por palabras clave + log warn `supervisor.keyword_fallback` |
+| Fallo de `LLMPort` al resumir | Bedrock caído en `window_history` | Se conserva el resumen previo (o ninguno) y el turno sigue + log warn `supervisor.summary_failed` |
 | Especialista sin `reply` | El grafo de citas/pedidos/faqs no redactó (no debería) | Mensaje honesto de reintento + log warn `supervisor.empty_specialist_reply` |
 
 ## Cómo probarlo
@@ -155,6 +173,12 @@ responde con el saludo plantilla del tenant.
   JSON ilegible pasan al agente, draft expirado, undo dentro/fuera de ventana,
   confirmer caído degrada con log, router no inyectado retrocompatible, e2e «sí» sin
   clasificador y **saludo intacto con draft esperando**.
+- Unit ventana/resumen (Paso 8, hecho): `tests/unit/test_supervisor_history.py`
+  (`split_window` y mensajes sintéticos del dominio; nodo sin desbordado no llama al
+  LLM, desbordado recorta y resume, resumen previo viaja/actualiza, fallo o salida
+  vacía del LLM conserva el resumen previo, el sintético no se re-resume, ventana
+  personalizada y turno sin historial) + e2e en `test_supervisor_graph.py`
+  (12 mensajes → resumen primero y clasificación con la ventana de 10).
 - Eval (hecho): `tests/agent_evals/datasets/supervisor_routing.json` con su ejecutor
   `tests/agent_evals/test_supervisor_dataset.py` (`greeting_01/02`, `appointments_01`,
   `orders_01`, `allowed_bots_01`, `ambiguous_01`); el build falla si el saludo enruta

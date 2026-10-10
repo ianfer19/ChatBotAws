@@ -10,8 +10,9 @@ class Settings(BaseSettings):
     """Ajustes del sistema desde el entorno, con prefijo `CHATBOT_`.
 
     Campos: entorno de despliegue, nivel de log, modelo de Bedrock y timeout de su
-    cliente (Paso 2), y desde el Paso 7 los de RAG: modelo de embeddings y
-    conexión a Aurora. Los de RAG son opcionales a nivel de `Settings` (solo el
+    cliente (Paso 2), desde el Paso 7 los de RAG: modelo de embeddings y
+    conexión a Aurora, y desde el Paso 8 el tamaño de la ventana de historial.
+    Los de RAG son opcionales a nivel de `Settings` (solo el
     proceso que compone el RAG los exige) y el constructor del adapter falla
     rápido si faltan. Cada paso añade los suyos en vez de estandarizar
     configuración que aún no existe.
@@ -47,6 +48,9 @@ class Settings(BaseSettings):
     aurora_dbname: str = Field(default="")
     aurora_username: str = Field(default="chatbot_admin")
     aurora_secret_arn: str = Field(default="")
+    # Paso 8 (memoria): tamaño de la ventana de historial que ve el clasificador;
+    # lo que desborda se reduce a resumen (nodo `window_history` del supervisor).
+    history_window_size: int = Field(default=10, ge=1)
 
     @model_validator(mode="after")
     def _bedrock_model_id_es_obligatorio(self) -> Self:

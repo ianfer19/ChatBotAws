@@ -31,6 +31,13 @@ TAREA_PENDIENTE = (
     '"pass" con el hash tal cual. No escribas texto fuera del JSON.'
 )
 
+TAREA_RESUMEN = (
+    "TAREA: resume en español los mensajes de la conversación que aparecen abajo. "
+    "SOLO resume: no respondas al cliente, no decidas nada, no apliques reglas de "
+    "negocio y no inventes datos. Devuelve únicamente el resumen en un párrafo, "
+    "sin encabezados ni texto fuera del resumen."
+)
+
 
 def load_system_prompt() -> str:
     """Lee el system prompt base del supervisor desde `prompts/base/`.

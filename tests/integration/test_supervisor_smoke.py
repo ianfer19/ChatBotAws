@@ -3,8 +3,8 @@
 Tres turnos con las dependencias de producción (modelo real, lector de contexto real,
 ambos especialistas reales): un saludo, que debe quedarse en el supervisor; una petición
 de cita y un pedido, que deben invocar a su especialista. Verifica el camino completo
-`load_context` → `resolve_pending` → `classify` → `decide` → [greet |
-route_appointments | route_orders]. Son varias llamadas al modelo por turno
+`load_context` → `window_history` → `resolve_pending` → `classify` → `decide` →
+[greet | route_appointments | route_orders]. Son varias llamadas al modelo por turno
 `TODO(verify pricing)` (Paso 14).
 
 Se omite en CI o sin `CHATBOT_BEDROCK_MODEL_ID` real; si la cuenta aún no tiene

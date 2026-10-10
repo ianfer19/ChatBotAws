@@ -12,8 +12,10 @@ from shared.ports import LLMMessage, LLMResult
 from slices.supervisor.application.deps import Deps
 from slices.supervisor.application.graph import build_supervisor_graph
 from slices.supervisor.application.nodes import classify, load_context, ruta_tras_decidir
+from slices.supervisor.application.prompts import TAREA_RESUMEN
 from slices.supervisor.application.state import SupervisorState
 from slices.supervisor.domain.errors import MissingTurnInputsError
+from slices.supervisor.domain.history import summary_message
 from slices.supervisor.domain.routing import saludo
 
 TENANT = "Sede_Elite_01"
@@ -543,3 +545,30 @@ def test_ruta_tras_decidir_solo_manda_a_faq_si_hay_grafo() -> None:
     turno = SupervisorState(message=_mensaje("algo"), target="faq")
     assert ruta_tras_decidir(turno, deps=con_grafo) == "route_faq"
     assert ruta_tras_decidir(turno, deps=sin_grafo) == "route_pending"
+
+
+# ------------------------------------------------------- ventana y resumen (Paso 8)
+
+
+def test_la_ventana_y_el_resumen_llegan_al_clasificador() -> None:
+    """Historial largo: primero se resume lo desbordado, luego se clasifica con la ventana."""
+    grafo, llm, _, _, _ = _grafo(["Resumen de los doce turnos.", JSON_SALUDO])
+    historial = [
+        LLMMessage(role="user" if indice % 2 == 0 else "assistant", content=f"turno {indice}")
+        for indice in range(12)
+    ]
+    estado = grafo.invoke(SupervisorState(message=_mensaje("hola"), history=historial))
+
+    assert len(llm.calls) == 2
+    resumen_llamada, clasifica_llamada = llm.calls[0], llm.calls[1]
+    assert resumen_llamada["system"] == TAREA_RESUMEN
+    assert "turno 0" in resumen_llamada["messages"][0].content
+    assert "turno 2" not in resumen_llamada["messages"][0].content
+
+    mensajes = clasifica_llamada["messages"]
+    assert len(mensajes) == 12
+    assert mensajes[0] == summary_message("Resumen de los doce turnos.")
+    assert mensajes[1] == LLMMessage(role="user", content="turno 2")
+    assert mensajes[-1] == LLMMessage(role="user", content="hola")
+    assert estado["summary"] == "Resumen de los doce turnos."
+    assert estado["reply"] == saludo(TENANT)

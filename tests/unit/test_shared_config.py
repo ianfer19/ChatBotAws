@@ -60,3 +60,16 @@ def test_timeout_de_bedrock_por_defecto_y_personalizado(monkeypatch: pytest.Monk
     monkeypatch.setenv("CHATBOT_BEDROCK_TIMEOUT_SECONDS", "0")
     with pytest.raises(PydanticValidationError):
         Settings()
+
+
+def test_ventana_de_historial_por_defecto_y_personalizada(monkeypatch: pytest.MonkeyPatch) -> None:
+    """La ventana de historial (Paso 8) arranca en 10 y no admite menos de 1."""
+    monkeypatch.delenv("CHATBOT_HISTORY_WINDOW_SIZE", raising=False)
+    assert load_settings().history_window_size == 10
+
+    monkeypatch.setenv("CHATBOT_HISTORY_WINDOW_SIZE", "6")
+    assert load_settings().history_window_size == 6
+
+    monkeypatch.setenv("CHATBOT_HISTORY_WINDOW_SIZE", "0")
+    with pytest.raises(PydanticValidationError):
+        Settings()

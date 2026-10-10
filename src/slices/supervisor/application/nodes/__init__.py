@@ -16,6 +16,7 @@ from slices.supervisor.application.nodes.route_appointments import route_appoint
 from slices.supervisor.application.nodes.route_faq import route_faq
 from slices.supervisor.application.nodes.route_orders import route_orders
 from slices.supervisor.application.nodes.route_pending import route_pending
+from slices.supervisor.application.nodes.window_history import window_history
 from slices.supervisor.application.state import SupervisorState
 
 __all__ = [
@@ -30,6 +31,7 @@ __all__ = [
     "route_pending",
     "ruta_tras_decidir",
     "ruta_tras_pendiente",
+    "window_history",
 ]
 
 

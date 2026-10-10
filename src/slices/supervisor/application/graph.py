@@ -1,7 +1,9 @@
 """Grafo del supervisor: nodos, aristas y compilación (ROADMAP Paso 4, Fase 4 Paso 5).
 
-Orden: `load_context` → `resolve_pending` → [fin | classify] → decide → [greet |
-route_appointments | route_orders | route_faq | route_pending | fin]. El router de
+Orden: `load_context` → `window_history` → `resolve_pending` → [fin | classify] →
+decide → [greet | route_appointments | route_orders | route_faq | route_pending |
+fin]. El nodo de ventana (Paso 8) recorta el historial a `history_window_size`
+mensajes y reduce lo desbordado a resumen antes de que nadie lo use. El router de
 pendientes (ADR 0011.5) resuelve drafts a la espera con respuesta plantilla antes de
 clasificar; el saludo y las respuestas degradadas terminan en el propio supervisor;
 las citas, los pedidos y el FAQ se ejecutan invocando su grafo ya compilado (nodo
@@ -10,7 +12,8 @@ estén inyectados (ventas no existe todavía; FAQ y pedidos son opcionales).
 
 Las dependencias llegan por `partial` (DI manual): quien construye el grafo decide si
 el LLM es Bedrock o un doble, quién lee el contexto de cliente, con qué entitlements
-corre cada comercio y con qué confirmer se resuelven los drafts.
+corre cada comercio, con qué confirmer se resuelven los drafts y con qué tamaño de
+ventana se resume la conversación.
 """
 
 from functools import partial
@@ -34,6 +37,7 @@ from slices.supervisor.application.nodes import (
     route_pending,
     ruta_tras_decidir,
     ruta_tras_pendiente,
+    window_history,
 )
 from slices.supervisor.application.state import SupervisorState
 from slices.supervisor.domain.ports import (
@@ -55,6 +59,7 @@ def build_supervisor_graph(
     faq_graph: SpecialistGraphPort | None = None,
     draft_store: DraftStorePort | None = None,
     confirmer: ConfirmerPort | None = None,
+    history_window_size: int = 10,
 ) -> CompiledStateGraph[SupervisorState, Any, Any, Any]:  # pyrefly: ignore[bad-specialization]
     """Construye y compila el grafo del supervisor con las dependencias del entorno.
 
@@ -72,12 +77,16 @@ def build_supervisor_graph(
             `None` desactiva el router (los drafts los resuelven las tools).
         confirmer: Resolución de drafts (affirm/deny/undo) de la composición;
             `None` desactiva el router junto a `draft_store`.
+        history_window_size: Tamaño de la ventana que ve el clasificador (Paso 8);
+            lo que desborda se reduce a resumen en el nodo `window_history`.
 
     Returns:
         Grafo compilado, listo para `invoke` con un estado inicial `SupervisorState`.
 
     Raises:
         AppError: Si el prompt base del supervisor no se puede cargar (fichero ausente).
+        ValidationError: Si `history_window_size` es menor que 1 (`Settings` ya lo
+            valida al arrancar).
     """
     deps = Deps(
         llm=llm,
@@ -88,9 +97,11 @@ def build_supervisor_graph(
         faq_graph=faq_graph,
         draft_store=draft_store,
         confirmer=confirmer,
+        history_window_size=history_window_size,
     )
     graph = StateGraph(SupervisorState)  # pyrefly: ignore[bad-specialization]
     graph.add_node("load_context", partial(load_context, deps=deps))
+    graph.add_node("window_history", partial(window_history, deps=deps))
     graph.add_node("resolve_pending", partial(resolve_pending, deps=deps))
     graph.add_node("classify", partial(classify, deps=deps))
     graph.add_node("decide", partial(decide, deps=deps))
@@ -101,7 +112,8 @@ def build_supervisor_graph(
     graph.add_node("route_pending", route_pending)
 
     graph.add_edge(START, "load_context")
-    graph.add_edge("load_context", "resolve_pending")
+    graph.add_edge("load_context", "window_history")
+    graph.add_edge("window_history", "resolve_pending")
     graph.add_conditional_edges(
         "resolve_pending",
         ruta_tras_pendiente,
