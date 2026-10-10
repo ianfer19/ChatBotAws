@@ -5,7 +5,7 @@ DynamoDB, SSM, SQS ni llamadas reales a Meta (ROADMAP §2.4). El aislamiento por
 vive en la clave del doble, nunca en el payload.
 """
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 from shared.contracts.messages import OutboundMessage
 from shared.contracts.types import Channel
@@ -94,10 +94,10 @@ class InMemoryDeduplication:
 
 
 class InMemoryChannel:
-    """`ChannelPort` de tests: captura lo enviado y devuelve un `ChannelMessage` fijado.
+    """`ChannelPort` de tests: captura lo enviado y devuelve la lista fija de mensajes.
 
     No interpreta payloads reales (eso lo hacen los adaptadores de la Fase 3): el
-    constructor recibe de antemano el mensaje normalizado que el doble devolverá.
+    constructor recibe de antemano los `ChannelMessage` que el doble devolverá.
 
     Example:
         >>> from datetime import UTC, datetime
@@ -110,34 +110,34 @@ class InMemoryChannel:
     def __init__(
         self,
         *,
-        normalized: ChannelMessage | None = None,
+        normalized: Sequence[ChannelMessage] = (),
         credentials_ok: bool = True,
     ) -> None:
-        """Prepara el doble con el mensaje fijo y el estado de credenciales.
+        """Prepara el doble con los mensajes fijos y el estado de credenciales.
 
         Args:
-            normalized: `ChannelMessage` que devolverá `normalize_inbound` (`None`
-                = devuelve `None`, como un evento a ignorar).
+            normalized: Mensajes que devolverá `normalize_inbound` (vacío = evento
+                a ignorar, como una lista sin mensajes).
             credentials_ok: Resultado de `verify_credentials`.
         """
         self.sent: list[OutboundMessage] = []
-        self._normalized = normalized
+        self._normalized = list(normalized)
         self._credentials_ok = credentials_ok
 
     def normalize_inbound(
         self, payload: Mapping[str, object], *, channel: Channel
-    ) -> ChannelMessage | None:
-        """Devuelve el mensaje fijado en el constructor (ignora el payload).
+    ) -> list[ChannelMessage]:
+        """Devuelve los mensajes fijados en el constructor (ignora el payload).
 
         Args:
             payload: Payload crudo (ignorado por el doble).
             channel: Canal detectado (ignorado por el doble).
 
         Returns:
-            El `ChannelMessage` configurado o `None`.
+            Los `ChannelMessage` configurados (lista vacía si no los hay).
         """
         del payload, channel
-        return self._normalized
+        return list(self._normalized)
 
     def send(self, message: OutboundMessage) -> None:
         """Acumula la respuesta en `sent` en lugar de llamar a Meta.

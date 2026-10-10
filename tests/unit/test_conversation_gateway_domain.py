@@ -276,7 +276,9 @@ def test_canal_falso_verify_credentials_es_configurable() -> None:
 
 
 def test_canal_falso_normalize_devuelve_lo_configurado() -> None:
-    """`normalize_inbound` devuelve el mensaje fijado o `None` (evento a ignorar)."""
+    """`normalize_inbound` devuelve la lista fijada; vacía = evento a ignorar."""
     mensaje = _mensaje_falso()
-    assert InMemoryChannel(normalized=mensaje).normalize_inbound({}, channel="whatsapp") == mensaje
-    assert InMemoryChannel().normalize_inbound({}, channel="whatsapp") is None
+    assert InMemoryChannel(normalized=[mensaje]).normalize_inbound({}, channel="whatsapp") == [
+        mensaje
+    ]
+    assert InMemoryChannel().normalize_inbound({}, channel="whatsapp") == []

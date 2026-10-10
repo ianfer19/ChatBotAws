@@ -5,8 +5,8 @@
 > sin releer el código. Criterio de cierre del paso:
 > [ROADMAP §1 fila 9](../ROADMAP.md). Decisiones de alcance: este mismo archivo.
 >
-> **Estado global: PASO 9 EN CURSO — Fase 2 COMPLETA (2 de 7). Siguiente: Fase 3
-> (parsers de los 3 canales → `ChannelMessage`).**
+> **Estado global: PASO 9 EN CURSO — Fase 3 COMPLETA (3 de 7). Siguiente: Fase 4
+> (tenant + dedup + encolado + módulo SQS/IAM en Terraform).**
 
 ## Decisiones cerradas con el usuario (2026-10-10)
 
@@ -47,7 +47,7 @@
 |---|---|---|
 | 1 | Domain + `ChannelPort` + errores + dobles en memoria | `[x]` |
 | 2 | Webhook: `GET hub.challenge` + `POST` con firma HMAC | `[x]` |
-| 3 | Normalización: parsers de los 3 canales → `ChannelMessage` | `[ ]` |
+| 3 | Normalización: parsers de los 3 canales → `ChannelMessage` | `[x]` |
 | 4 | Tenant + dedup + encolado + módulo SQS/IAM (Terraform) | `[ ]` |
 | 5 | Credenciales (SSM) + endpoint admin + `verify_credentials` | `[ ]` |
 | 6 | Consumer (persistencia + supervisor) + envío de respuestas + zips | `[ ]` |
@@ -101,6 +101,34 @@
 - [x] Batería verde + commit `feat(paso-9): webhook meta con verificacion y firma`.
 - Nota: el `handler = "handler.main"` de Terraform pasará a
   `handler.lambda_webhook.main` al empaquetar el zip (Fase 6).
+
+## Fase 3 — parsers de los 3 canales  (hecha)
+
+- [x] `shared/ports/channel.py`: `normalize_inbound` pasa a devolver
+  `list[ChannelMessage]` (Meta agrupa varios mensajes en un evento; `[]` = ignorar)
+  y `ChannelMessage` gana `sender_name: str | None` (nombre del perfil de WhatsApp).
+- [x] `infrastructure/channels/payload.py`: navegación defensiva del JSON
+  (`objeto`/`lista`/`cadena`), `cadena_requerida` y `epoch` (segundos string de
+  WhatsApp vs. milisegundos de IG/FB → `datetime` UTC).
+- [x] `infrastructure/channels/messaging.py`: envelope `entry[].messaging[]`
+  común a IG/FB — descarta estados y ecos, emisor = `recipient.id`, clasifica por
+  `attachments[0]` (`file` → `document`, ubicación → `Location: lat, long`) y
+  `parse_story_replies` (IG: `story_<id>` + `[Story Reply] …`).
+- [x] `infrastructure/channels/whatsapp/parser.py`: recorre todos los
+  `entry[].changes[].value`, descarta `statuses`, el eco propio
+  (`from == display_phone_number`) y tipos no soportados (`reaction`/
+  `interactive` → `TODO(decision)`); tipos text/image/audio/video/document/
+  location/sticker con media y caption; fallback de remitente vía
+  `contacts[0].wa_id` y `sender_name` del perfil.
+- [x] `infrastructure/channels/{messenger,instagram}/parser.py`: envolvente
+  compartido; Instagram añade respuestas a historias. Registro `parse_event` en
+  `infrastructure/channels/__init__.py` (`_PARSERS` por canal).
+- [x] Tests: `tests/contract/test_channel_parsers.py` (30 con
+  `pytestmark = pytest.mark.contract`): rutas completas por canal, media
+  (caption/URL/filename), estados/eco/no-soportados descartados, multi-mensaje y
+  multi-entry, fallback de remitente, errores de payload malformado (sin metadata,
+  sin remitente, id/timestamp inválidos) y despacho por registro.
+- [x] Batería verde + commit `feat(paso-9): parsers de los 3 canales a channelmessage`.
 
 ## Criterios de hecho del ROADMAP (§1 fila 9)
 

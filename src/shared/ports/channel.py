@@ -56,6 +56,8 @@ class ChannelMessage(BaseModel):
             `media_handling`, ROADMAP §4).
         media_type: MIME o clase del medio (image/audio/video/document).
         media_url: URL directa del medio si el canal la aporta (Messenger/Instagram).
+        sender_name: Nombre del remitente si el canal lo trae en el payload
+            (perfil de WhatsApp); `None` si hay que pedirlo a la Graph API.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -71,6 +73,7 @@ class ChannelMessage(BaseModel):
     media_id: str | None = Field(default=None, max_length=128)
     media_type: str | None = Field(default=None, max_length=32)
     media_url: str | None = Field(default=None, max_length=1024)
+    sender_name: str | None = Field(default=None, max_length=120)
 
 
 @runtime_checkable
@@ -79,17 +82,20 @@ class ChannelPort(Protocol):
 
     def normalize_inbound(
         self, payload: Mapping[str, object], *, channel: Channel
-    ) -> ChannelMessage | None:
+    ) -> list[ChannelMessage]:
         """Interpreta el payload de **su** canal y lo normaliza a `ChannelMessage`.
+
+        Meta puede agrupar varios mensajes en un solo webhook (y el legacy V2 los
+        recorre todos), así que el resultado es siempre una lista.
 
         Args:
             payload: JSON ya parseado del webhook (cuerpo exacto de Meta).
             channel: Canal detectado en el envelope (`detect_channel`).
 
         Returns:
-            El mensaje normalizado, o `None` si el evento se ignora (estados de
-            lectura, reacciones, mensajes de sistema): el handler responde 200 sin
-            reprocesar.
+            Los mensajes normalizados en orden; lista vacía si el evento se ignora
+            (estados de lectura, ecos, reacciones: el handler responde 200 sin
+            reprocesar).
 
         Raises:
             ValidationError: Si el payload no es del formato esperado del canal.

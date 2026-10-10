@@ -134,9 +134,9 @@ class _FakeChannel:
 
     def normalize_inbound(
         self, payload: Mapping[str, object], *, channel: Channel
-    ) -> ChannelMessage | None:
+    ) -> list[ChannelMessage]:
         del payload, channel
-        return self._message
+        return [self._message]
 
     def send(self, message: OutboundMessage) -> None:
         self.sent.append(message)
