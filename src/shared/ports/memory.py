@@ -5,9 +5,10 @@ de ventana/resumen: guarda y recupera un payload opaco (JSON serializado) por
 conversación, siempre particionado por `tenant_id`. No interpreta el contenido: eso
 lo decide la capa que lo usa (el orquestador y sus políticas).
 
-`TODO(verify)` de la API concreta del checkpointer de LangGraph (checkpoint, thread id,
-resúmenes) según la versión que fijemos en el Paso 8: este port solo estabiliza la
-operación de almacenamiento que ambos casos necesitan.
+El consumidor concreto es `adapters.checkpointer.PortCheckpointSaver`
+(`BaseCheckpointSaver` de langgraph-checkpoint 4.2.0, API verificada en el Paso 8):
+cada conversación es **un solo payload** con el checkpoint más reciente y sus writes
+pendientes; el `thread_id` de LangGraph lleva el tenant embebido (`<tenant>#<conv>`).
 """
 
 from typing import Protocol, runtime_checkable
