@@ -1,8 +1,9 @@
 # Slice: conversation_gateway
 
-> Paso de implementación: **Paso 9**. Estado: **Fases 1–6 hechas** (dominio, firma,
-> parsers, tenant + dedup + encolado, credenciales + admin, envío de respuestas y
-> consumer en `src/handlers/`); Fase 7 (cierre) pendiente. Commit C (especialistas +
+> Paso de implementación: **Paso 9**. Estado: **Fases 1–7 hechas** (dominio, firma,
+> parsers, tenant + dedup + encolado, credenciales + admin, envío de respuestas,
+> consumer en `src/handlers/` y cierre documental con ADR 0014). Falta la prueba de
+> tráfico real en dev (empaquetado de zips + credenciales). Commit C (especialistas +
 > contexto real) queda fuera del paso (ROADMAP).
 
 ## Responsabilidad

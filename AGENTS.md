@@ -261,6 +261,7 @@ Mismo patrón para cualquier regla crítica: ninguna depende solo del prompt.
 | D8 | Confirmación por política de riesgo con drafts propose/commit (sin ritual fijo; sin depender del checkpointer) | [0011](docs/adr/0011-confirmacion-por-politica-con-drafts.md) |
 | D9 | Infraestructura: estado remoto con bootstrap, un stack por entorno y Lambdas sin VPC por defecto | [0012](docs/adr/0012-infraestructura-terraform-estado-y-red.md) |
 | D10 | Checkpoint de conversación sobre `MemoryStorePort` (solo el más reciente, `thread_id` con tenant) + ventana de historial con resumen rodante en tabla dedicada | [0013](docs/adr/0013-checkpoint-de-conversacion-y-ventana-de-historial.md) |
+| D11 | Composition root de producción en `src/handlers/` (único lugar que importa varios slices; el test AST solo cubre `src/slices/`) | [0014](docs/adr/0014-composition-root-en-handlers.md) |
 
 Requisitos de corrección que deben mantenerse siempre (con sus tests):
 **saludo** → intención `greeting`/`smalltalk` con ruta propia y saludo neutral, sin enrutar
@@ -304,7 +305,7 @@ de las fases históricas 1–9 a los pasos nuevos).
 | 6 | Infraestructura Terraform base (state, red, DynamoDB, S3, Aurora, IAM, apigw, lambda) | **hecho** |
 | 7 | RAG + Aurora/pgvector (`knowledge_rag`, `VectorStorePort` → `adapters/aurora`) | **hecho** |
 | 8 | Memory / checkpoints (checkpointer tras `MemoryStorePort`, ventana + resumen, ADR 0013) | **hecho** |
-| 9 | Conversation gateway (webhook Meta, 3 canales, firma y tenant) | pendiente |
+| 9 | Conversation gateway (webhook Meta, 3 canales, firma y tenant) | **en curso** (código y docs completos, Fases 1–7; falta prueba de tráfico real en dev) |
 | 10 | AgentCore Runtime (+ Memory de AgentCore) | pendiente |
 | 11 | AgentCore Gateway + Policy | pendiente |
 | 12 | AgentCore Identity + Policy | pendiente |

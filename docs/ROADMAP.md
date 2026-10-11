@@ -28,6 +28,13 @@ fuente de verdad: la disponibilidad, los precios y el estado salen de tools vali
 | 13 | **Observabilidad + seguridad** | CloudWatch con `tenant_id`/`correlation_id`, alarmas, Guardrails (grounding, temas denegados), runbooks, threat model a código | Dashboard por tenant; bloqueo de Guardrails verificado; runbooks creados |
 | 14 | **Evaluación + optimización de costos** | `tests/agent_evals/` con datasets, presupuesto por conversación, revisión de precios | Evals obligatorias en verde en CI; `TODO(verify pricing)` cerrados |
 
+> **Estado del Paso 9 (2026-10-10)**: sus 7 fases están completas en código y docs
+> (webhook con firma, parsers de los 3 canales, tenant + dedup + SQS, credenciales +
+> admin, envío de respuestas y consumer end-to-end tras `src/handlers/`, ADR 0014). Lo
+> que falta para el «Hecho cuando…» de la fila es la **prueba con tráfico real en dev**,
+> que requiere empaquetado de los zips de Lambda y credenciales reales en SSM.
+> Ver [progress/paso-9-conversation-gateway.md](progress/paso-9-conversation-gateway.md).
+
 ## 2. Reglas que la ruta respeta (y que verifican los tests)
 
 1. **Abstracción de modelo**: `LangGraph → LLMPort → BedrockLLM (Converse) → modelId`.

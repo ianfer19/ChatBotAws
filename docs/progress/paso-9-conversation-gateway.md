@@ -5,8 +5,9 @@
 > sin releer el código. Criterio de cierre del paso:
 > [ROADMAP §1 fila 9](../ROADMAP.md). Decisiones de alcance: este mismo archivo.
 >
-> **Estado global: PASO 9 EN CURSO — Fase 6 COMMIT A Y COMMIT B HECHOS (6 de 7).
-> Siguiente: Fase 7 (cierre: AGENTS, ROADMAP, checklist, batería final).**
+> **Estado global: PASO 9 EN CURSO — FASES 1–7 COMPLETAS (código + cierre documental).
+> Falta: prueba de tráfico real en dev (empaquetado de zips + credenciales en SSM) para
+> cumplir el «Hecho cuando…» del ROADMAP.**
 > El Commit C (especialistas + contexto DynamoDB real + `allowed_bots` por tenant)
 > queda explícitamente fuera de este paso (ROADMAP).
 
@@ -53,7 +54,7 @@
 | 4 | Tenant + dedup + encolado + módulo SQS/IAM (Terraform) | `[x]` |
 | 5 | Credenciales (SSM) + endpoint admin + `verify_credentials` | `[x]` |
 | 6 | Consumer (persistencia + supervisor) + envío de respuestas + zips | `[~]` (Commit A y Commit B hechos; Commit C fuera del paso) |
-| 7 | Cierre: AGENTS, ROADMAP, checklist, batería final | `[ ]` |
+| 7 | Cierre: AGENTS, ROADMAP, checklist, batería final | `[x]` |
 
 ## Fase 1 — domain + `ChannelPort`  (hecha)
 
@@ -289,17 +290,37 @@ Especialistas inyectados (`appointments`/`orders`/`faq`), adapter DynamoDB real 
 puntos de inyección (`_construir_consumer`, `_LectorContextoVacio`) para que sea un
 cambio aditivo.
 
+## Fase 7 — cierre documental  (hecha)
+
+- [x] **ADR 0014** (`composition-root-en-handlers.md`): decisión de `src/handlers/`
+  como composition root de producción — el único lugar que importa varios slices; el
+  test AST solo cubre `src/slices/` y `import-linter` registra el contenedor `handlers`.
+  Estado Aceptado; índice de `docs/adr/README.md` actualizado.
+- [x] `AGENTS.md` raíz: fila **D11** en §8 (decisiones) y fila 9 de §10 en estado
+  **en curso** (código y docs completos; falta prueba de tráfico real en dev).
+- [x] `ROADMAP.md`: nota de estado del Paso 9 bajo la tabla §1 (7 fases completas en
+  código/docs; el «Hecho cuando…» de tráfico real sigue pendiente de dev). La fila 9 y
+  su criterio no cambian.
+- [x] Este checklist: cabecera, tabla de fases (Fase 7 → `[x]`) y criterios actualizados.
+- [x] Batería completa en verde al cierre (`ruff`, `ruff format`, `mypy`, `pytest`,
+  `lint-imports`, `terraform fmt -check`).
+- [x] Commit en español, solo subject: `docs(paso-9): cierre documental del paso y adr
+  de composition root`.
+- Fuera del alcance (documentado, no bloquea): **Commit C** (especialistas, contexto
+  DynamoDB real, `allowed_bots`) y **empaquetado de zips** para el despliegue dev.
+
 ## Criterios de hecho del ROADMAP (§1 fila 9)
 
 - [ ] **Prueba con tráfico real de los 3 canales** → **pendiente de entorno dev**
-  (los endpoints de credenciales llegan en la Fase 5; hasta entonces no hay con qué).
+  (Fase 7: los endpoints de credenciales existen, pero faltan el empaquetado de los
+  zips de Lambda y credenciales/mapping reales en dev para recibir tráfico).
 - [x] **Deduplicación** (Fase 4, con test de duplicado → 200 silencioso).
 - [x] **Aislamiento por tenant** (Fase 6, Commit B: `DynamoConversationStore` particiona
   por `ORG#<tenant>` y el consumer pasa `tenant_id` desde el `QueuedMessage`; la dedup
   ya era por tenant y hay test de no-fuga entre comercios desde la Fase 1).
-- [ ] Webhook completo tras `ChannelPort`: `hub.challenge`,
-  `X-Hub-Signature-256`, resolución de `tenant_id`, SQS (Fases 2–4).
-- [ ] Batería completa en verde al cierre de la Fase 7.
+- [x] Webhook completo tras `ChannelPort`: `hub.challenge`,
+  `X-Hub-Signature-256`, resolución de `tenant_id`, SQS (Fases 2–4, con tests).
+- [x] Batería completa en verde al cierre de la Fase 7.
 
 ## Pendientes explícitos (no bloquean el cierre)
 
@@ -308,8 +329,9 @@ cambio aditivo.
   canal→tenant desde el legacy; conmutación por número/WABA
   (INTEGRATION_WITH_LEGACY §3); tamaños/timeout de la cola y rate limiting contra
   Meta; empaquetado de los zips de Lambda.
-- `TODO(decision)`: si el pipeline nuevo merece un ADR propio (se valora en la Fase 7:
-  hoy cubre ADR 0006/0009/0003); respuesta fija al usuario cuando no hay mapeo de
+- `TODO(decision)`: el pipeline se cubre con ADR 0006/0009/0003 y, en la Fase 7, la
+  composición de producción se cerró con **ADR 0014** (`src/handlers/`); respuesta fija
+  al usuario cuando no hay mapeo de
   tenant (imposible sin credenciales del canal → Fase 5: el admin ya da de alta, pero
   la respuesta fija sigue pendiente de credenciales por tenant); validar contra Meta
   las credenciales **antes** de guardarlas en el admin (decisión 6 lo pospuso). El TTL
