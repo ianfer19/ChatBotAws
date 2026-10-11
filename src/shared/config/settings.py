@@ -83,6 +83,15 @@ class Settings(BaseSettings):
     # Paso 9 (Fase 6): timeout del HTTP hacia la Graph API (segundos). El legacy
     # usaba 10; aquí es configurable para no acoplarlo al timeout de Bedrock.
     meta_http_timeout_seconds: int = Field(default=10, ge=1)
+    # Paso 9 (Fase 6, consumer): tablas que el consumer end-to-end usa en línea,
+    # al estilo de `checkpoints_table`. `conversations_table` es la de DATA_MODEL
+    # (`chatbot_conversations`, claves `ORG#`/`CONV#`/`MSG#`) donde se persiste cada
+    # turno y de la que se lee la ventana de historial; `customer_context_table` es
+    # la del contexto por cliente (`chatbot_customer_context`). Opcionales a nivel
+    # de `Settings` (solo el consumer las exige) y su composición falla rápido si
+    # faltan.
+    conversations_table: str = Field(default="")
+    customer_context_table: str = Field(default="")
 
     @model_validator(mode="after")
     def _bedrock_model_id_es_obligatorio(self) -> Self:

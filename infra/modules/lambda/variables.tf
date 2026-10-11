@@ -26,6 +26,18 @@ variable "role_arns" {
   nullable    = false
 }
 
+variable "event_source_arns" {
+  description = <<-EOT
+    Mapa nombre lógico → ARN de la cola SQS cuyo event source mapping se crea contra
+    esa función (Fase 6, consumer). Solo para las funciones que consumen SQS (p. ej.
+    `consumer`); las demás no llevan entrada. El permiso `sqs:ReceiveMessage` /
+    `DeleteMessage` / `GetQueueAttributes` va en el rol IAM de la función (módulo iam).
+  EOT
+  type        = map(string)
+  default     = {}
+  nullable    = false
+}
+
 variable "log_retention_days" {
   description = "Días de retención de los logs de cada Lambda en CloudWatch."
   type        = number

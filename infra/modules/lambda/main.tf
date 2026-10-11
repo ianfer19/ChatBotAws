@@ -35,3 +35,17 @@ resource "aws_lambda_function" "this" {
   # primero, quedaría sin retención configurada.
   depends_on = [aws_cloudwatch_log_group.this]
 }
+
+# Consumo de la cola SQS (Fase 6): solo las funciones listadas en
+# `event_source_arns` (p. ej. `consumer`) reciben un mapping. El rol de la
+# función necesita `sqs:ReceiveMessage`/`DeleteMessage`/`GetQueueAttributes`
+# (módulo iam); `ReportBatchItemFailures` hace que el consumer pueda acusar
+# mensajes individuales con `batchItemFailures` (reintento puntual).
+resource "aws_lambda_event_source_mapping" "sqs" {
+  for_each = var.event_source_arns
+
+  event_source_arn        = each.value
+  function_name           = aws_lambda_function.this[each.key].arn
+  batch_size              = 10
+  function_response_types = ["ReportBatchItemFailures"]
+}

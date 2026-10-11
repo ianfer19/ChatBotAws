@@ -113,7 +113,7 @@ markers = [
 #   los dos contratos de abajo (el test de estructura lo verifica).
 # ---------------------------------------------------------------------------
 [tool.importlinter]
-root_packages = ["shared", "adapters", "slices"]
+root_packages = ["shared", "adapters", "slices", "handlers"]
 # Necesario para que los contratos "forbidden" puedan prohibir módulos externos
 # (boto3, langgraph, requests, ...). Documentación: import-linter, include_external_packages.
 include_external_packages = true

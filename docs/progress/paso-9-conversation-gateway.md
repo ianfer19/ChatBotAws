@@ -5,8 +5,10 @@
 > sin releer el código. Criterio de cierre del paso:
 > [ROADMAP §1 fila 9](../ROADMAP.md). Decisiones de alcance: este mismo archivo.
 >
-> **Estado global: PASO 9 EN CURSO — Fase 5 COMPLETA (5 de 7). Siguiente: Fase 6
-> (consumer: persistencia + supervisor + envío de respuestas + zips).**
+> **Estado global: PASO 9 EN CURSO — Fase 6 COMMIT A Y COMMIT B HECHOS (6 de 7).
+> Siguiente: Fase 7 (cierre: AGENTS, ROADMAP, checklist, batería final).**
+> El Commit C (especialistas + contexto DynamoDB real + `allowed_bots` por tenant)
+> queda explícitamente fuera de este paso (ROADMAP).
 
 ## Decisiones cerradas con el usuario (2026-10-10)
 
@@ -50,7 +52,7 @@
 | 3 | Normalización: parsers de los 3 canales → `ChannelMessage` | `[x]` |
 | 4 | Tenant + dedup + encolado + módulo SQS/IAM (Terraform) | `[x]` |
 | 5 | Credenciales (SSM) + endpoint admin + `verify_credentials` | `[x]` |
-| 6 | Consumer (persistencia + supervisor) + envío de respuestas + zips | `[ ]` |
+| 6 | Consumer (persistencia + supervisor) + envío de respuestas + zips | `[~]` (Commit A y Commit B hechos; Commit C fuera del paso) |
 | 7 | Cierre: AGENTS, ROADMAP, checklist, batería final | `[ ]` |
 
 ## Fase 1 — domain + `ChannelPort`  (hecha)
@@ -219,13 +221,82 @@
   de `register`).
 - [x] Batería verde + commit `feat(paso-9): credenciales ssm y endpoint admin`.
 
+## Fase 6 — consumer end-to-end  (Commit A y Commit B hechos; Commit C fuera del paso)
+
+Fase partida deliberadamente en dos objetivos de código, cada uno con su commit y su
+batería verde. El **Commit C** (especialistas inyectados, contexto DynamoDB real,
+`allowed_bots` por tenant) queda **fuera del Paso 9** para no mezclar alcances.
+
+### Commit A — envío de respuestas a la Graph API (hecho)
+
+- [x] `MetaChannel` único en `infrastructure/channels/meta.py` (ADR 0009): envía texto
+  por WhatsApp Cloud API y por `/me/messages` de Messenger/Instagram, replicando el
+  `send_outbound_message` del legacy; errores → `ToolError`/`ToolTimeoutError`.
+- [x] Contratos `InboundMessage`/`OutboundMessage`/`QueuedMessage` con `emitter_id`
+  (recipient_id) obligatorio (`min_length=1`); `AppError.details` pasa a `dict[str, str]`.
+- [x] `types-requests` añadido a dev; `MetaChannel` con `SsmCredentialStore` +
+  `RequestsGraphClient` inyectables.
+- [x] Batería verde + commit `feat(paso-9): envio de respuestas a la graph api de meta`.
+
+### Commit B — composition root `src/handlers/` + consumer SQS → supervisor → canal (hecho)
+
+- [x] Composición de producción en paquete top-level **`src/handlers/`** (decisión de la
+  Fase 6): único lugar que importa varios slices a la vez; el test de aislamiento AST
+  (`test_repo_contract.py`) solo cubre `src/slices/`, y `import-linter` registra el
+  contenedor `handlers` en `pyproject.toml` (`root_packages`).
+- [x] `src/handlers/consumer.py`: `MessageConsumer` + `main` (entrada Lambda SQS) +
+  `_construir_consumer`. Por mensaje: lee `historial` (ventana de
+  `chatbot_conversations`), invoca `grafo.invoke({"message", "history"})`, si hay
+  `reply` envía `OutboundMessage` por el canal y **siempre** `persistir_turno` al final
+  (`conversation_id = "<canal>:<cliente>"`). Sin `reply` → log
+  `consumer.routed_without_reply`. `main` valida settings (fail fast) antes de crear
+  clientes AWS y devuelve `{"batchItemFailures": [...]}`; mensajes inválidos
+  (`JSONDecodeError`, `pydantic.ValidationError`, `AppError`, `ToolError`) se acusan como
+  fallidos sin tumbar el lote.
+- [x] `_LectorContextoVacio`: lector de contexto que devuelve solo los ids (requisito 7.2
+  de la Fase 4: el turno no va sin contexto); el adapter DynamoDB real llega en Commit C.
+- [x] Grafo con `allowed_bots=frozenset()` → intenciones de negocio →
+  `IntentNotAllowedByTenant` («servicio no disponible») y saludo/degradaciones sí
+  responden; `appointments_graph=None` (`TODO(decision)` Commit C).
+- [x] `adapters/dynamodb/conversations.py`: `DynamoConversationStore` sobre
+  `chatbot_conversations` — claves `ORG#<tenant>`/`MSG#<conv>#<tsISO>` (DATA_MODEL),
+  TTL 30 días, `historial` (query `begins_with`, `ScanIndexForward=True`, recorte a la
+  ventana) y `persistir_turno` (2 ítems user+assistant); `TablaConversaciones` como
+  `Protocol` inyectable para testear sin AWS; errores → `ToolError`/`ToolTimeoutError`.
+- [x] Settings: `CHATBOT_CONVERSATIONS_TABLE` + `CHATBOT_CUSTOMER_CONTEXT_TABLE`
+  (opcionales a nivel de `Settings`; el `_construir_consumer` exige la de conversaciones
+  **antes** de crear boto3).
+- [x] Terraform (dev, staging, prod): IAM least-privilege del `consumer`
+  (`sqs:Receive/Delete/GetQueueAttributes`, `bedrock:InvokeModel`,
+  `dynamodb:PutItem/Query` sobre `chatbot_conversations`, `ssm:GetParameter` bajo
+  `/sahagun/*`), Lambda `consumer` (`handlers.consumer.main`, zip
+  `artifacts/consumer.zip`, `memory_size=512`, timeout 60) con las 2 env vars, y
+  `aws_lambda_event_source_mapping` (batch 10, `ReportBatchItemFailures`) en el módulo
+  `infra/modules/lambda/` (salida `sqs_event_source_mapping_ids`). `terraform validate`
+  en verde en los 3 entornos.
+- [x] Docs: `src/handlers/__init__.py` (paquete de composition roots) y registro del
+  contenedor `handlers` en `pyproject.toml`.
+- [x] Tests: `test_adapters_dynamodb_conversations.py` (claves, TTL, ventana recortada,
+  errores, conformance) + `test_handlers_consumer.py` (dobles: envía respuesta,
+  degrada sin reply, `main` devuelve `batchItemFailures`, historial y persistencia
+  correctos) + `test_shared_config.py` (+2 de las env vars nuevas) — **en verde**.
+- [x] Batería verde + commit del consumer (mensaje en español, sin body).
+
+### Commit C — fuera del Paso 9 (ROADMAP, no bloquea el cierre)
+
+Especialistas inyectados (`appointments`/`orders`/`faq`), adapter DynamoDB real de
+`chatbot_customer_context` y `allowed_bots` por tenant; el consumer de hoy ya expone los
+puntos de inyección (`_construir_consumer`, `_LectorContextoVacio`) para que sea un
+cambio aditivo.
+
 ## Criterios de hecho del ROADMAP (§1 fila 9)
 
 - [ ] **Prueba con tráfico real de los 3 canales** → **pendiente de entorno dev**
   (los endpoints de credenciales llegan en la Fase 5; hasta entonces no hay con qué).
 - [x] **Deduplicación** (Fase 4, con test de duplicado → 200 silencioso).
-- [ ] **Aislamiento por tenant** (Fase 6; la dedup ya es por tenant y hay test
-  de no-fuga entre comercios en la Fase 1).
+- [x] **Aislamiento por tenant** (Fase 6, Commit B: `DynamoConversationStore` particiona
+  por `ORG#<tenant>` y el consumer pasa `tenant_id` desde el `QueuedMessage`; la dedup
+  ya era por tenant y hay test de no-fuga entre comercios desde la Fase 1).
 - [ ] Webhook completo tras `ChannelPort`: `hub.challenge`,
   `X-Hub-Signature-256`, resolución de `tenant_id`, SQS (Fases 2–4).
 - [ ] Batería completa en verde al cierre de la Fase 7.

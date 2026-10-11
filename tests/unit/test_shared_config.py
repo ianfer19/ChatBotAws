@@ -100,3 +100,19 @@ def test_secretos_del_webhook_opcionales_y_desde_entorno(
     settings = load_settings()
     assert settings.webhook_verify_token == "token-meta"
     assert settings.meta_app_secret == "secreto-app"
+
+
+def test_tablas_del_consumer_opcionales_y_desde_entorno(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Las tablas del consumer (Paso 9, Fase 6) no obligan al resto de procesos a definirlas."""
+    monkeypatch.delenv("CHATBOT_CONVERSATIONS_TABLE", raising=False)
+    monkeypatch.delenv("CHATBOT_CUSTOMER_CONTEXT_TABLE", raising=False)
+    assert load_settings().conversations_table == ""
+    assert load_settings().customer_context_table == ""
+
+    monkeypatch.setenv("CHATBOT_CONVERSATIONS_TABLE", "chatbot_conversations_dev")
+    monkeypatch.setenv("CHATBOT_CUSTOMER_CONTEXT_TABLE", "chatbot_customer_context_dev")
+    settings = load_settings()
+    assert settings.conversations_table == "chatbot_conversations_dev"
+    assert settings.customer_context_table == "chatbot_customer_context_dev"

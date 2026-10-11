@@ -86,7 +86,7 @@ module "iam" {
   # Sin `conversation_admin` en prod: el alta de canales en producción viene del
   # backend legacy/administrativo (decisión 1 del Paso 9, reemplazo gradual) y el
   # endpoint admin mínimo es solo para dev/staging (decisión 6).
-  functions = ["conversation_gateway", "supervisor"]
+  functions = ["conversation_gateway", "supervisor", "consumer"]
 
   # Least-privilege por función: el gateway solo encola y consulta su
   # mapeo/deduplicación; solo el supervisor habla con Bedrock.
@@ -148,14 +148,62 @@ module "iam" {
           Sid    = "CheckpointsDeConversacion"
           Effect = "Allow"
           Action = [
-            # TODO(verify): acciones mínimas del checkpointer (Paso 8); revisar
-            # si `dynamodb:PartiQL*` o condicionales reducen más el permiso.
             "dynamodb:GetItem",
             "dynamodb:PutItem",
             "dynamodb:DeleteItem",
           ]
           Resource = [
             "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/${module.dynamodb.table_names["chatbot_checkpoints"]}",
+          ]
+        },
+      ]
+    })
+    consumer = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Sid    = "ConsumirColaEventos"
+          Effect = "Allow"
+          Action = [
+            "sqs:ReceiveMessage",
+            "sqs:DeleteMessage",
+            "sqs:GetQueueAttributes",
+          ]
+          Resource = [
+            module.sqs.queue_arn,
+          ]
+        },
+        {
+          Sid    = "BedrockConverse"
+          Effect = "Allow"
+          Action = [
+            "bedrock:InvokeModel",
+            "bedrock:InvokeModelWithResponseStream",
+          ]
+          Resource = [
+            "arn:aws:bedrock:${var.aws_region}::foundation-model/*",
+            "arn:aws:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:inference-profile/*",
+          ]
+        },
+        {
+          Sid    = "HistorialConversaciones"
+          Effect = "Allow"
+          Action = [
+            "dynamodb:PutItem",
+            "dynamodb:Query",
+          ]
+          Resource = [
+            "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/${module.dynamodb.table_names["chatbot_conversations"]}",
+          ]
+        },
+        {
+          Sid    = "CredencialesDeCanal"
+          Effect = "Allow"
+          Action = [
+            "ssm:GetParameter",
+          ]
+          Resource = [
+            "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/sahagun/*",
           ]
         },
       ]
@@ -170,6 +218,12 @@ data "aws_caller_identity" "current" {}
 locals {
   # TODO(decision): modelo por entorno (hoy el mismo que el del smoke; costos → Paso 14).
   model_id = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+
+  # Tablas del consumer (Fase 6): historial de conversaciones y contexto de
+  # cliente (Commit C inyecta el adapter real; hoy solo se pasa la de
+  # conversaciones, que es la que el consumer lee y persiste).
+  conversations_table    = module.dynamodb.table_names["chatbot_conversations"]
+  customer_context_table = module.dynamodb.table_names["chatbot_customer_context"]
 
   lambda_functions = {
     conversation_gateway = {
@@ -195,6 +249,19 @@ locals {
         CHATBOT_CHECKPOINTS_TABLE = module.dynamodb.table_names["chatbot_checkpoints"]
       }
     }
+    consumer = {
+      handler     = "handlers.consumer.main"
+      zip_path    = "../../../artifacts/consumer.zip"
+      timeout     = 60
+      memory_size = 512
+      env = {
+        CHATBOT_ENVIRONMENT         = "prod"
+        CHATBOT_BEDROCK_MODEL_ID    = local.model_id
+        CHATBOT_CONVERSATIONS_TABLE = local.conversations_table
+        # TODO(verify): el customer_context se cablea en Commit C con el adapter real.
+        CHATBOT_CUSTOMER_CONTEXT_TABLE = local.customer_context_table
+      }
+    }
   }
 }
 
@@ -203,6 +270,11 @@ module "lambda" {
   environment = "prod"
   functions   = local.lambda_functions
   role_arns   = module.iam.role_arns
+
+  # Solo el consumer consume la cola (Fase 6); el mapping lo crea el módulo.
+  event_source_arns = {
+    consumer = module.sqs.queue_arn
+  }
 }
 
 module "apigw" {

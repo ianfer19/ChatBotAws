@@ -1,8 +1,9 @@
 # Slice: conversation_gateway
 
-> Paso de implementación: **Paso 9**. Estado: **Fases 1–5 hechas** (dominio, firma,
-> parsers, tenant + dedup + encolado, credenciales + admin); fases 6–7 pendientes. Es
-> la puerta única de entrada de la plataforma.
+> Paso de implementación: **Paso 9**. Estado: **Fases 1–6 hechas** (dominio, firma,
+> parsers, tenant + dedup + encolado, credenciales + admin, envío de respuestas y
+> consumer en `src/handlers/`); Fase 7 (cierre) pendiente. Commit C (especialistas +
+> contexto real) queda fuera del paso (ROADMAP).
 
 ## Responsabilidad
 
@@ -49,6 +50,7 @@ intenciones, NO ejecuta tools de negocio, NO contiene lógica de ventas/citas/pe
 | DynamoDB `chatbot_channel_mapping` | Mapeo id de emisor Meta → `store_id` (claves exactas del legacy `WA_CONFIG#<id>\|METADATA`, `IG_CONFIG#`, `FB_CONFIG#`) | 9 |
 | DynamoDB `chatbot_processed_messages` | Deduplicación: `MSG_PROCESSED#<message_id>\|DEDUP#<tenant_id>` con `attribute_not_exists(PK)` y TTL 24 h | 9 |
 | SSM SecureString `/sahagun/<canal>/<tenant>/…` | Credenciales por comercio (`access_token`/`app_secret`); réplica de las rutas del legacy; los valores jamás se loguean ni salen del adaptador | 5 |
+| DynamoDB `chatbot_conversations` | Historial de la conversación (ventana que lee el consumer + turnos persistidos); particionada por `ORG#<tenant>`, TTL 30 días | 9/6 |
 | API Gateway HTTP (`POST /admin/channels`) | Alta de canal en dev/staging con token propio mínimo (sin Meta validation, `TODO(decision)`); **no existe en prod** | 5 |
 
 ## Reglas de negocio clave
@@ -87,10 +89,10 @@ mensaje ya contextualizado.
 | `DuplicateMessageError` | Reenvío íntegro de Meta | `200 EVENT_DUPLICATED` (idempotencia) |
 | `ValidationError` | Cuerpo malformado o configuración faltante (fail fast) | HTTP 400 / excepción al arrancar |
 | `CredentialNotFoundError` | Comercio sin token en SSM (envíos, Fase 6) | 502 interno; nunca se muestra al usuario |
+| `ToolError`/`ToolTimeoutError` del `MetaChannel` | Meta devuelve >= 400 o no responde a tiempo | El consumer lo acusa como fallido (`batchItemFailures`) → reintento de la cola |
 | `AdminUnauthorizedError` | Token del admin ausente o erróneo | HTTP 401 sin detalle del motivo |
 | `AdminMethodNotAllowedError` | Método distinto de `POST` en el admin | HTTP 405 |
 | `ToolError`/`ToolTimeoutError` | Fallo de SQS, DynamoDB o SSM | Reintento de Meta + `release` de la dedup |
-| Timeout de canal | Meta no responde (Fase 6) | Retry acotado + log; la respuesta se encola |
 
 ## Cómo probarlo
 
@@ -98,8 +100,9 @@ mensaje ya contextualizado.
   mapeo presente/ausente, deduplicación, flujo completo
   (`test_conversation_gateway_flow.py`), admin (`test_conversation_gateway_admin.py`),
   credenciales (`test_conversation_gateway_ssm.py`) y adapters (`*_dynamodb.py`,
-  `test_adapters_sqs_event_bus.py`) con dobles, sin AWS.
+  `test_adapters_sqs_event_bus.py`, `test_conversation_gateway_meta_channel.py`,
+  `test_adapters_dynamodb_conversations.py`) con dobles, sin AWS.
 - Contract (`tests/contract/test_channel_parsers.py`): esquema del payload de webhook de
   los 3 canales (textos, media, estados de lectura).
 - Eval (`tests/agent_evals/datasets/`): un saludo llega normalizado con `tenant_id` y
-  `correlation_id` presentes (Fase 6, al conectar el consumer).
+  `correlation_id` presentes.
