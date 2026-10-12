@@ -1,7 +1,9 @@
 # Módulo: lambda
 
 Factory de funciones Lambda **Python 3.12**, una por punto de entrada (hoy
-`conversation_gateway` y `supervisor`). **Paso 6.**
+`conversation_gateway`, `conversation_admin` —solo dev/staging— y `consumer`; la
+Lambda `supervisor` fue retirada en el Paso 9 porque no tenía handler real).
+**Paso 6.**
 
 ## Recursos
 

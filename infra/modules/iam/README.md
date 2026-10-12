@@ -8,7 +8,9 @@ hardcodeados. **Paso 6.**
 - `aws_iam_role` (confianza `lambda.amazonaws.com`), adjunto de
   `AWSLambdaBasicExecutionRole` y `aws_iam_role_policy` **inline por función**:
   cada entrada de `inline_policies` añade solo sus permisos (hoy
-  `bedrock:InvokeModel*` exclusivamente para `supervisor`).
+  `bedrock:InvokeModel*` exclusivamente para `consumer`, el único que invoca
+  modelos; la Lambda `supervisor` fue retirada en el Paso 9 porque no tenía
+  handler real).
 
 ## Variables
 

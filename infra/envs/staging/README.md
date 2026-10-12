@@ -7,7 +7,10 @@ Meta no productivas. **Paso 6.**
 Módulos cableados: `kms`, `network`, `s3`, `dynamodb`, `sqs` (cola de eventos +
 DLQ del gateway, Paso 9), `aurora`, `iam`, `lambda` (`conversation_gateway`,
 `conversation_admin` —alta de canales con `-var admin_token=…`, solo dev/staging—
-y `supervisor`) y `apigw` (`/webhook` y `POST /admin/channels`).
+y `consumer`) y `apigw` (`/webhook` y `POST /admin/channels`). El zip es único
+(`artifacts/chatbot.zip`, generado por `scripts/package_lambda.py`); la Lambda
+`supervisor` se retiró porque no tenía handler real (el grafo corre in-process
+en el consumer; vuelve con el Paso 10).
 
 ## Uso
 

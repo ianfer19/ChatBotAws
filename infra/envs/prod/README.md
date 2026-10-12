@@ -5,8 +5,12 @@ borrado y snapshot final obligatorio, retención de logs conforme al ADR 0007 y
 alarmas (observability → Paso 13). **Paso 6.**
 
 Módulos cableados: `kms`, `network`, `s3`, `dynamodb`, `sqs` (cola de eventos +
-DLQ del gateway, Paso 9), `aurora`, `iam`, `lambda` (`conversation_gateway`,
-`supervisor`) y `apigw` (`/webhook`).
+DLQ del gateway, Paso 9), `aurora`, `iam`, `lambda` (`conversation_gateway` y
+`consumer`) y `apigw` (`/webhook`). El zip es único (`artifacts/chatbot.zip`,
+generado por `scripts/package_lambda.py`); la Lambda `supervisor` se retiró
+porque no tenía handler real (el grafo corre in-process en el consumer; vuelve
+con el Paso 10). Sin `conversation_admin` en prod (decisión 1, alto de canales
+vía el legacy).
 
 ## Uso
 

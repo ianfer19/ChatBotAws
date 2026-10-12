@@ -82,10 +82,12 @@ module "aurora" {
 module "iam" {
   source      = "../../modules/iam"
   environment = "dev"
-  functions   = ["conversation_gateway", "conversation_admin", "supervisor", "consumer"]
+  # Sin `supervisor`: no tiene handler real hoy (el grafo corre in-process en el
+  # consumer); vuelve como Lambda desplegable con el Paso 10 (AgentCore Runtime).
+  functions = ["conversation_gateway", "conversation_admin", "consumer"]
 
   # Least-privilege por función: el gateway solo encola y consulta su
-  # mapeo/deduplicación; solo el supervisor habla con Bedrock.
+  # mapeo/deduplicación; solo el consumer habla con Bedrock.
   # TODO(verify): ARNs exactos (foundation-model vs inference-profile) al
   # cablear el adapter real (Pasos 7–10).
   inline_policies = {
@@ -149,37 +151,6 @@ module "iam" {
             # Rutas réplica del legacy (`/sahagun/<canal>/<tenant>/...`); el valor
             # es SecureString con la KMS gestionada por SSM (sin llave propia).
             "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/sahagun/*",
-          ]
-        },
-      ]
-    })
-    supervisor = jsonencode({
-      Version = "2012-10-17"
-      Statement = [
-        {
-          Sid    = "BedrockConverse"
-          Effect = "Allow"
-          Action = [
-            "bedrock:InvokeModel",
-            "bedrock:InvokeModelWithResponseStream",
-          ]
-          Resource = [
-            "arn:aws:bedrock:${var.aws_region}::foundation-model/*",
-            "arn:aws:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:inference-profile/*",
-          ]
-        },
-        {
-          Sid    = "CheckpointsDeConversacion"
-          Effect = "Allow"
-          Action = [
-            # TODO(verify): acciones mínimas del checkpointer (Paso 8); revisar
-            # si `dynamodb:PartiQL*` o condicionales reducen más el permiso.
-            "dynamodb:GetItem",
-            "dynamodb:PutItem",
-            "dynamodb:DeleteItem",
-          ]
-          Resource = [
-            "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/${module.dynamodb.table_names["chatbot_checkpoints"]}",
           ]
         },
       ]
@@ -251,10 +222,12 @@ locals {
   conversations_table    = module.dynamodb.table_names["chatbot_conversations"]
   customer_context_table = module.dynamodb.table_names["chatbot_customer_context"]
 
+  # Zip único para todas las funciones (Fase de empaquetado del Paso 9; ver
+  # `scripts/package_lambda.py`): el código es el mismo y solo cambia el handler.
   lambda_functions = {
     conversation_gateway = {
-      handler  = "handler.main"
-      zip_path = "../../../artifacts/conversation_gateway.zip"
+      handler  = "slices.conversation_gateway.handler.lambda_webhook.main"
+      zip_path = "../../../artifacts/chatbot.zip"
       timeout  = 10
       env = {
         CHATBOT_ENVIRONMENT              = "dev"
@@ -262,11 +235,15 @@ locals {
         CHATBOT_EVENTS_QUEUE_URL         = module.sqs.queue_url
         CHATBOT_CHANNEL_MAPPING_TABLE    = module.dynamodb.table_names["chatbot_channel_mapping"]
         CHATBOT_PROCESSED_MESSAGES_TABLE = module.dynamodb.table_names["chatbot_processed_messages"]
+        # Secretos del webhook (verify + firma HMAC): `WebhookReceiver` falla
+        # rápido si faltan. TODO(verify): en prod, SSM/Secrets Manager (ADR 0012).
+        CHATBOT_WEBHOOK_VERIFY_TOKEN = var.webhook_verify_token
+        CHATBOT_META_APP_SECRET      = var.meta_app_secret
       }
     }
     conversation_admin = {
-      handler  = "handler.lambda_admin.main"
-      zip_path = "../../../artifacts/conversation_gateway.zip"
+      handler  = "slices.conversation_gateway.handler.lambda_admin.main"
+      zip_path = "../../../artifacts/chatbot.zip"
       timeout  = 10
       env = {
         # `Settings` exige el modelo aunque el admin no lo use (validador global).
@@ -276,20 +253,9 @@ locals {
         CHATBOT_CHANNEL_MAPPING_TABLE = module.dynamodb.table_names["chatbot_channel_mapping"]
       }
     }
-    supervisor = {
-      handler     = "handler.main"
-      zip_path    = "../../../artifacts/supervisor.zip"
-      timeout     = 60
-      memory_size = 512
-      env = {
-        CHATBOT_ENVIRONMENT       = "dev"
-        CHATBOT_BEDROCK_MODEL_ID  = local.model_id
-        CHATBOT_CHECKPOINTS_TABLE = module.dynamodb.table_names["chatbot_checkpoints"]
-      }
-    }
     consumer = {
       handler     = "handlers.consumer.main"
-      zip_path    = "../../../artifacts/consumer.zip"
+      zip_path    = "../../../artifacts/chatbot.zip"
       timeout     = 60
       memory_size = 512
       env = {

@@ -283,6 +283,34 @@ batería verde. El **Commit C** (especialistas inyectados, contexto DynamoDB rea
   correctos) + `test_shared_config.py` (+2 de las env vars nuevas) — **en verde**.
 - [x] Batería verde + commit del consumer (mensaje en español, sin body).
 
+### Empaquetado y secretos en Terraform (hecho)
+
+Preparación para el despliegue dev (runbook `docs/runbooks/DESPLIEGUE_DEV.md`): el
+único criterio que le faltaba al Paso 9 era tráfico real, y para eso las Lambdas
+tenían que poder desplegarse (hoy `artifacts/` estaba vacío y los `handler` strings de
+Terraform no apuntaban al código real).
+
+- [x] `scripts/package_lambda.py`: construye **`artifacts/chatbot.zip`** único (copias
+  de `src/shared`, `src/adapters`, `src/slices`, `src/handlers` + `langgraph`,
+  `requests`, `pydantic`, `pydantic-settings` con `pip install --target`; sin `boto3`,
+  que lo trae el runtime; sin `psycopg`, que es de Aurora y no de estas funciones).
+- [x] `infra/envs/{dev,staging,prod}`: **Lambda `supervisor` eliminada** (no tenía
+  handler real — `src/slices/supervisor/handler/` solo tiene `__init__.py`; el grafo
+  corre in-process en el consumer; vuelve con el Paso 10). Zip unificado a
+  `chatbot.zip` en las funciones restantes; **handlers alineados** con la raíz del zip:
+  `slices.conversation_gateway.handler.lambda_webhook.main`,
+  `slices.conversation_gateway.handler.lambda_admin.main` y `handlers.consumer.main`.
+- [x] **Secretos del webhook en TF**: nuevas env vars
+  `CHATBOT_WEBHOOK_VERIFY_TOKEN`/`CHATBOT_META_APP_SECRET` en `conversation_gateway`
+  (antes `WebhookReceiver` fallaba al arrancar), con variables sensibles
+  `webhook_verify_token`/`meta_app_secret` en los 3 `variables.tf` (mismo patrón que
+  `admin_token`); `TODO(verify)` de SSM/Secrets Manager en prod intacto.
+- [x] Docs: `docs/runbooks/DESPLIEGUE_DEV.md` (runbook de despliegue dev: empaquetado,
+  `terraform apply` con secretos, alta de canal, credenciales SSM, webhook en Meta,
+  prueba de tráfico real de los 3 canales, rollback), índice de runbooks, README de
+  `infra/envs/dev` y este checklist.
+- [x] Batería verde + commit en español.
+
 ### Commit C — fuera del Paso 9 (ROADMAP, no bloquea el cierre)
 
 Especialistas inyectados (`appointments`/`orders`/`faq`), adapter DynamoDB real de
@@ -312,8 +340,8 @@ cambio aditivo.
 ## Criterios de hecho del ROADMAP (§1 fila 9)
 
 - [ ] **Prueba con tráfico real de los 3 canales** → **pendiente de entorno dev**
-  (Fase 7: los endpoints de credenciales existen, pero faltan el empaquetado de los
-  zips de Lambda y credenciales/mapping reales en dev para recibir tráfico).
+  (empaquetado de zips y secretos en Terraform listos: falta ejecutar el
+  `docs/runbooks/DESPLIEGUE_DEV.md` con credenciales AWS y la app de Meta).
 - [x] **Deduplicación** (Fase 4, con test de duplicado → 200 silencioso).
 - [x] **Aislamiento por tenant** (Fase 6, Commit B: `DynamoConversationStore` particiona
   por `ORG#<tenant>` y el consumer pasa `tenant_id` desde el `QueuedMessage`; la dedup
@@ -328,7 +356,8 @@ cambio aditivo.
   exactos de claves IG/FB en el legacy; mecanismo de replicación del mapeo
   canal→tenant desde el legacy; conmutación por número/WABA
   (INTEGRATION_WITH_LEGACY §3); tamaños/timeout de la cola y rate limiting contra
-  Meta; empaquetado de los zips de Lambda.
+  Meta. El empaquetado de los zips de Lambda ya está resuelto
+  (`scripts/package_lambda.py`, zip único `artifacts/chatbot.zip`).
 - `TODO(decision)`: el pipeline se cubre con ADR 0006/0009/0003 y, en la Fase 7, la
   composición de producción se cerró con **ADR 0014** (`src/handlers/`); respuesta fija
   al usuario cuando no hay mapeo de

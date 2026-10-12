@@ -13,11 +13,14 @@ Ver también: [../security/THREAT_MODEL.md](../security/THREAT_MODEL.md),
 
 | Runbook | Descripción | Paso | Estado |
 |---|---|---|---|
+| `DESPLIEGUE_DEV.md` | Desplegar el entorno `dev` (empaquetado, `terraform apply` con secretos, alta de canal, tráfico real de los 3 canales) y su rollback | Paso 9 | Pendiente (no probado aún) |
 | `ROLLBACK_PROMPT.md` | Revertir la versión de prompt de un tenant a la anterior en Bedrock Prompt Management cuando una versión nueva degrada las respuestas | fuera de ruta | Pendiente (aún no creado) |
 | `HANDOFF_HUMAN.md` | Ejecutar y dar soporte al traspaso de una conversación a un agente humano (sentimiento negativo o petición explícita) sin perder contexto | fuera de ruta | Pendiente (aún no creado) |
 | `ABUSE_UNLOCK.md` | Revisar y desbloquear un remitente o tenant bloqueado por `abuse_protection`, con motivo en auditoría y registro de la decisión | fuera de ruta | Pendiente (aún no creado) |
 
-Los tres archivos **aún no existen**: este índice es su plan. Se crean en el paso indicado
+El archivo `DESPLIEGUE_DEV.md` existe y está escrito, pero aún no se ha ejecutado con
+tráfico real: por eso su estado sigue en `Pendiente` (sección 4). Los otros tres
+**aún no existen**: este índice es su plan. Se crean en el paso indicado
 y, mientras tanto, no se ejecuta ningún procedimiento informal en su lugar.
 
 Runbooks futuros (propuestos, sin fecha): respuesta a incidente de seguridad, degradación

@@ -12,7 +12,7 @@ variable "functions" {
 variable "inline_policies" {
   description = <<-EOT
     Mapa función → política JSON propia (acciones concretas que esa función
-    necesita, p. ej. `bedrock:InvokeModel` para el supervisor). Las claves
+    necesita, p. ej. `bedrock:InvokeModel` para el consumer). Las claves
     deben existir en `functions`. Vacío = solo logs de CloudWatch.
   EOT
   type        = map(string)
