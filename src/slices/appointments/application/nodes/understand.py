@@ -88,7 +88,10 @@ def understand(state: AgentState, *, deps: Deps) -> AgentState:
         ToolError: Si el propio LLM falla (red, 5xx); lo traduce el adapter y el
             turno se interrumpe fuera de este nodo.
     """
-    system = f"{load_system_prompt()}\n\n{tarea_interpretar(deps.clock.now().date())}"
+    system = (
+        f"{deps.system_prompt or load_system_prompt()}\n\n"
+        f"{tarea_interpretar(deps.clock.now().date())}"
+    )
     mensajes = [
         *list(state.get("history") or []),
         LLMMessage(role="user", content=state["user_message"]),

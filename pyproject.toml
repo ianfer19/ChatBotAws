@@ -38,6 +38,11 @@ dev = [
     # Stubs de `requests` para mypy: sin ellos falla el adapter Graph API
     # (Paso 9 Fase 6) con "Library stubs not installed for requests".
     "types-requests",
+    # Consola local (Fase A): API y servidor de desarrollo. No entra en el zip de
+    # Lambda hasta que la consola se despliegue (Fase D).
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "httpx>=0.27",
 ]
 
 [tool.setuptools]

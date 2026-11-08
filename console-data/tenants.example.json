@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "tenants": {
+    "Sede_Elite_01": {
+      "tenant_id": "Sede_Elite_01",
+      "display_name": "Sede Elite",
+      "tone": "cercano",
+      "language": "es",
+      "allowed_bots": [
+        "sales",
+        "appointments",
+        "orders",
+        "faq"
+      ],
+      "model_id": null,
+      "prompts": {}
+    }
+  }
+}

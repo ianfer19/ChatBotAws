@@ -32,7 +32,7 @@ def respond(state: AgentState, *, deps: Deps) -> AgentState:
             aquí (gestiona el handler).
     """
     system = (
-        f"{load_system_prompt()}\n\n{TAREA_RESPONDER}\n\n"
+        f"{deps.system_prompt or load_system_prompt()}\n\n{TAREA_RESPONDER}\n\n"
         f"{bloque_evidencia(state.get('evidence') or [])}"
     )
     mensajes = [

@@ -115,7 +115,8 @@ def respond(state: AgentState, *, deps: Deps) -> AgentState:
         ToolError: Si el LLM falla (red, 5xx); lo traduce el adapter.
     """
     system = (
-        f"{load_system_prompt()}\n\n{TAREA_REDACTAR}\n\n" f"Contexto del turno:\n{_contexto(state)}"
+        f"{deps.system_prompt or load_system_prompt()}\n\n{TAREA_REDACTAR}\n\n"
+        f"Contexto del turno:\n{_contexto(state)}"
     )
     mensajes = [
         *list(state.get("history") or []),

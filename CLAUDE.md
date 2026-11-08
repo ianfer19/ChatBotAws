@@ -40,7 +40,8 @@ Equivalente en un solo paso (Linux/macOS): `make verify && make tf-fmt`.
 
 - Estado: **Fases 1–2 completadas**; **pasos 1–8** de la ruta completados; paso activo:
   **9 (Conversation gateway)** — ver AGENTS.md §10 y [docs/ROADMAP.md](docs/ROADMAP.md).
-- Backend legacy: `C:\Users\ianfe\OneDrive\Documentos\GitHub\sahagunonline\back`
-  (solo lectura de referencia: su `AGENTS.md`, `docs/catalogo_endpoints.md` y
+- Backend legacy: repo hermano `sahagunonline/back`, clonado junto a este proyecto
+  (por ejemplo `<ruta-a-tu-GitHub>/sahagunonline/back`). Solo lectura de referencia:
+  su `AGENTS.md`, `docs/catalogo_endpoints.md` y
   `docs/Architecture.md` explican el sistema actual y el contrato de APIs/tools).
 - Decisiones ya cerradas: ADR 0001–0013 en `docs/adr/`; retención (0007) fuera de la ruta (ROADMAP §4).

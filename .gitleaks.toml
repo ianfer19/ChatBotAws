@@ -1,0 +1,19 @@
+# Configuración de gitleaks para ChatBotAws.
+#
+# Extiende las reglas por defecto (AWS, tokens de proveedores, JWT, claves privadas,
+# API keys genéricas) y solo silencia valores sintéticos usados en tests y docs.
+# Cualquier valor real debe vivir en Secrets Manager/SSM, nunca en el repo.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Fixtures deliberadamente falsos: no son credenciales reales"
+regexes = [
+  '''EAAB\.\.\.''',                 # access token truncado en un test de logging
+  '''hunter2''',                    # contraseña de juguete del test de redacción
+  '''tok-123''',                    # token de canal simulado
+  '''token-de-verificacion''',      # verify token simulado del webhook
+  '''token-admin-de-prueba''',      # admin token simulado
+  '''arn:aws:secretsmanager:us-east-1:123456789012:secret:aurora-master''',
+]

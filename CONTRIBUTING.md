@@ -21,7 +21,9 @@ con el flujo de trabajo del equipo.
 
    O en un paso: `make verify` (Linux/macOS).
 
-5. **Pre-commit** (opcional pero recomendado): `pre-commit install` y luego
+5. **Pre-commit** (opcional pero recomendado): instala `gitleaks` (el hook de secretos
+   lo necesita) con `winget install Gitleaks.Gitleaks`, `brew install gitleaks` o el
+   binario oficial de sus releases; luego `pre-commit install` y
    `pre-commit run --all-files`.
 6. **Pull request** con: descripción del cambio, evidencia de CI verde, actualización del
    `AGENTS.md` del slice afectado, ADR nuevo si la decisión cambia estructura, datos,

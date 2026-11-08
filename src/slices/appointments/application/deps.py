@@ -25,9 +25,12 @@ class Deps:
             `allowed_bots` del supervisor; `select_action` interseca con
             `ALLOWED_TOOLS`, así que una tool fuera de la intersección no se ejecuta
             jamás (capa adicional de mínimo privilegio).
+        system_prompt: Override del prompt base de citas (Fase A de la consola);
+            `None` carga `prompts/base/appointments.md` como hasta ahora.
     """
 
     llm: LLMPort
     tools: AppointmentTools
     clock: ClockPort
     allowed_tools: frozenset[ToolName] | None = None
+    system_prompt: str | None = None

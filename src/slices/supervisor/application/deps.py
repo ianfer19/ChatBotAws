@@ -34,6 +34,10 @@ class Deps:
             normal (retrocompatible con composiciones previas).
         history_window_size: Tamaño máximo de la ventana de historial que ve el
             clasificador (Paso 8); lo que desborda se reduce a resumen.
+        tenant_name: Nombre comercial con el que se saluda (Fase A de la consola);
+            `None` conserva el `tenant_id` como branding de respaldo.
+        system_prompt: Override del system prompt base (Fase A de la consola);
+            `None` carga `prompts/base/supervisor.md` como hasta ahora.
     """
 
     llm: LLMPort
@@ -45,3 +49,5 @@ class Deps:
     draft_store: DraftStorePort | None = None
     confirmer: ConfirmerPort | None = None
     history_window_size: int = 10
+    tenant_name: str | None = None
+    system_prompt: str | None = None

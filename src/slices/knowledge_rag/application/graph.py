@@ -35,6 +35,7 @@ def build_faq_graph(
     embeddings: EmbeddingsPort,
     store: VectorStorePort,
     threshold: float = SIMILITUDE_THRESHOLD,
+    system_prompt: str | None = None,
 ) -> CompiledStateGraph[AgentState, Any, Any, Any]:  # pyrefly: ignore[bad-specialization]
     """Construye y compila el grafo faq con las dependencias del entorno.
 
@@ -45,6 +46,8 @@ def build_faq_graph(
         store: Almacén vectorial filtrado por tenant (`InMemoryVectorStore` en
             tests, `AuroraVectorStore` en producción).
         threshold: Umbral de similitud de esta composición (los evals lo calibran).
+        system_prompt: Override del prompt base de FAQ (Fase A de la consola);
+            `None` carga `prompts/base/faq.md`.
 
     Returns:
         Grafo compilado, listo para `invoke` con un estado inicial `AgentState`.
@@ -55,6 +58,7 @@ def build_faq_graph(
     deps = Deps(
         llm=llm,
         tools=KnowledgeTools(embeddings=embeddings, store=store, threshold=threshold),
+        system_prompt=system_prompt,
     )
     graph = StateGraph(AgentState)  # pyrefly: ignore[bad-specialization]
     graph.add_node("retrieve", partial(retrieve, deps=deps))

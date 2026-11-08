@@ -54,6 +54,7 @@ def build_order_graph(
     minimum: float = MINIMO_COMPRA,
     amount_threshold: float = MONTO_UMBRAL,
     allowed_tools: frozenset[ToolName] | None = None,
+    system_prompt: str | None = None,
 ) -> CompiledStateGraph[AgentState, Any, Any, Any]:  # pyrefly: ignore[bad-specialization]
     """Construye y compila el grafo de pedidos con las dependencias del entorno.
 
@@ -69,6 +70,8 @@ def build_order_graph(
         amount_threshold: Monto desde el cual el pedido exige confirmación.
         allowed_tools: Entitlements finos del comercio (Fase 4 del Paso 5); `None`
             permite toda la allowlist del slice.
+        system_prompt: Override del prompt base de pedidos (Fase A de la consola);
+            `None` carga `prompts/base/orders.md`.
 
     Returns:
         Grafo compilado, listo para `invoke` con un estado inicial `AgentState`.
@@ -89,6 +92,7 @@ def build_order_graph(
         ),
         clock=clock,
         allowed_tools=allowed_tools,
+        system_prompt=system_prompt,
     )
     graph = StateGraph(AgentState)  # pyrefly: ignore[bad-specialization]
     graph.add_node("understand", partial(understand, deps=deps))

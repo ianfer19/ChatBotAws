@@ -19,7 +19,7 @@ from shared.errors import ToolError, ValidationError
 _HOST = "chatbot-aws-dev.cluster-abc.us-east-1.rds.amazonaws.com"
 _DBNAME = "chatbot"
 _USERNAME = "chatbot_admin"
-_SECRET = "arn:aws:secretsmanager:us-east-1:029944900353:secret:aurora-master"
+_SECRET = "arn:aws:secretsmanager:us-east-1:123456789012:secret:aurora-master"
 
 
 class _SecretsFalso:

@@ -49,6 +49,7 @@ def build_appointment_graph(
     opening_hours: Sequence[OpeningHoursDay],
     drafts: DraftStorePort,
     allowed_tools: frozenset[ToolName] | None = None,
+    system_prompt: str | None = None,
 ) -> CompiledStateGraph[AgentState, Any, Any, Any]:  # pyrefly: ignore[bad-specialization]
     """Construye y compila el grafo de citas con las dependencias del entorno.
 
@@ -61,6 +62,8 @@ def build_appointment_graph(
             desarrollo, DynamoDB `pending_actions` en el Paso 6).
         allowed_tools: Entitlements finos del comercio (Fase 4 del Paso 5); `None`
             permite toda la allowlist del slice.
+        system_prompt: Override del prompt base de citas (Fase A de la consola);
+            `None` carga `prompts/base/appointments.md`.
 
     Returns:
         Grafo compilado, listo para `invoke` con un estado inicial `AgentState`.
@@ -73,6 +76,7 @@ def build_appointment_graph(
         tools=AppointmentTools(repo=repo, clock=clock, opening_hours=opening_hours, drafts=drafts),
         clock=clock,
         allowed_tools=allowed_tools,
+        system_prompt=system_prompt,
     )
     graph = StateGraph(AgentState)  # pyrefly: ignore[bad-specialization]
     graph.add_node("understand", partial(understand, deps=deps))

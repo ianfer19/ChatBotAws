@@ -26,9 +26,12 @@ class Deps:
             `allowed_bots` del supervisor; `select_action` interseca con
             `ALLOWED_TOOLS`, así que una tool fuera de la intersección no se ejecuta
             jamás (capa adicional de mínimo privilegio).
+        system_prompt: Override del prompt base de pedidos (Fase A de la consola);
+            `None` carga `prompts/base/orders.md` como hasta ahora.
     """
 
     llm: LLMPort
     tools: OrderTools
     clock: ClockPort
     allowed_tools: frozenset[ToolName] | None = None
+    system_prompt: str | None = None

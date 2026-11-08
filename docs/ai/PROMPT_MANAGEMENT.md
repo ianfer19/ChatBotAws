@@ -20,12 +20,16 @@ Cada tenant tiene su propio set. La variante por defecto hereda de `prompts/base
 
 ## Naming convencional
 
-- Identificador: `{tenant_id}/{kind}` (p. ej. `comercio-demo/system`).
+- Identificador lógico: `{tenant_id}/{kind}` (p. ej. `comercio-demo/system`).
+- **Nombre físico en Prompt Management**: `chatbot-{tenant_slug}-{kind}`. La API
+  `CreatePrompt` solo admite `name` con el patrón `([0-9a-zA-Z][_-]?){1,100}`; una
+  barra `/` hace fallar la creación. El `prompt_id` devuelto se guarda en la
+  configuración del tenant (Fase B) para no depender del nombre.
 - `tenant_id`: slug en minúsculas, `[a-z0-9-]`, sin secretos ni datos reales.
 - `kind`: exactamente uno de los siete de la tabla; no se crean kinds ad-hoc sin
   actualizar este documento y el inventario del slice `tenant_prompts`.
-- El nombre publicado en Prompt Management es idéntico al del repo: cualquier
-  desviación se detecta en la sincronización.
+- El nombre lógico del repo se conserva en la documentación y en los tags/metadata de
+  la versión; el nombre físico es el que acepta la API.
 
 ## Versionado semántico y aprobación
 
@@ -99,10 +103,27 @@ runtime. El slice `tenant_prompts` se encarga de la sincronización:
 3. **Drift check (CI)**: compara hash de plantilla local vs. versión publicada y
    falla si hay divergencia no versionada.
 
-`TODO(verify)` de los nombres exactos de operaciones de la API de Bedrock Prompt
-Management (crear prompt, crear versión, obtener, listar versiones, etc.) y de los
-parámetros de activación por versión; verificar contra la documentación vigente
-antes de implementar `tenant_prompts` (fuera de la ruta, ROADMAP §4).
+Operaciones verificadas contra la API vigente (2026-11):
+
+| Operación | Uso |
+|---|---|
+| `CreatePrompt` | Crea el prompt y su versión `DRAFT` |
+| `UpdatePrompt` | Edita el `DRAFT` |
+| `CreatePromptVersion` | Congela una versión numerada |
+| `GetPrompt` | Lee `DRAFT` o una versión concreta |
+| `ListPrompts` | Lista prompts o versiones de uno |
+| `DeletePrompt` | Borra el prompt completo |
+
+**No existe `UpdatePromptDefaultVersion`** en la lista de operaciones. El pin de la
+versión activa por tenant se guarda en DynamoDB (Fase B), no en Prompt Management. El
+cliente es el de `bedrock-agent` (no `bedrock-runtime`).
+
+### Fase A (implementada)
+
+La consola local guarda perfil y overrides en `console-data/tenants.json` (gitignored)
+y los inyecta como `system_prompt`/`tenant_name` en los grafos. No usa Prompt Management
+todavía; la Fase B sustituye el repositorio JSON por el adapter de Bedrock y añade
+versiones, activación y rollback.
 
 ## Seguridad
 

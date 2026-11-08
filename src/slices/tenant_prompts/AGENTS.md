@@ -1,13 +1,25 @@
 # Slice: tenant_prompts
 
-> **Fuera de la ruta** (ROADMAP §4). Estado: **definido, sin implementar** (el detalle
-> funcional se completa en su paso; este documento es el contrato previo).
+> **Fase A de la consola local** (fuera de la ruta de 14 pasos). Estado: **implementado
+> con persistencia JSON local** — perfil de comercio, overrides de prompt y restauración
+> a la plantilla base. La versión Bedrock Prompt Management + DynamoDB (contenido,
+> versiones y pin activo) llega en la **Fase B**.
 
 ## Responsabilidad
-Selección y carga del prompt de cada comercio: lee las versiones publicadas en Bedrock
-Prompt Management (base en `prompts/base/`, personalización en
-`prompts/tenants/<tenant_id>/`), con fallback a la plantilla base, cacheo por versión,
-rollback y rollout gradual. No contiene lógica de negocio ni decide la intención.
+Selección y carga de la configuración de cada comercio: perfil editable (nombre, tono,
+idioma, `allowed_bots`, modelo) y overrides de prompt con fallback a `prompts/base/`.
+En la Fase B leerá las versiones publicadas en Bedrock Prompt Management y mantendrá el
+pin de la versión activa en DynamoDB, con cacheo, rollback y rollout gradual. No contiene
+lógica de negocio ni decide la intención.
+
+## Implementación Fase A
+- `domain/entities.py`: `TenantProfile`, `TenantProfileUpdate`, `PromptKind`,
+  `default_profile`.
+- `domain/ports.py`: `TenantProfileRepositoryPort`.
+- `application/service.py`: `TenantConfigService` (perfil, prompts, base y reset).
+- `infrastructure/local_json.py`: `LocalJsonTenantRepository` (JSON atómico, lock).
+- `prompts/base/*.md`: plantilla base de cada prompt; el override del comercio se
+  inyecta en los grafos mediante `system_prompt` (y `tenant_name` en el saludo).
 
 ## Entradas y salidas
 - Entradas: solicitud de plantilla por clave de operación (p. ej. el especialista de
@@ -27,9 +39,11 @@ rollback y rollout gradual. No contiene lógica de negocio ni decide la intenci�
 ## Tablas y recursos AWS
 | Recurso | Por qué | Paso |
 |---|---|---|
-| Bedrock Prompt Management | Prompts versionados por operación y tenant | fuera de ruta |
-| KMS (cifrado de prompts) | Manejo seguro de las plantillas personalizadas (uso exacto: TODO(verify)) | fuera de ruta |
-| CloudWatch Logs | Cargas, caches, rollbacks y fallbacks con `tenant_id` | fuera de ruta |
+| `console-data/tenants.json` (local, gitignored) | Perfil y overrides de la consola en la Fase A | Fase A |
+| Bedrock Prompt Management | Prompts versionados por operación y tenant | Fase B |
+| DynamoDB (pin de versión activa) | Qué versión usa cada tenant | Fase B |
+| KMS (cifrado de prompts) | Manejo seguro de las plantillas personalizadas (uso exacto: TODO(verify)) | Fase B |
+| CloudWatch Logs | Cargas, caches, rollbacks y fallbacks con `tenant_id` | Fase D |
 
 ## Reglas de negocio clave
 1. Si falta la personalización del tenant, se usa la plantilla base de `prompts/base/`
@@ -50,14 +64,21 @@ rollback y rollout gradual. No contiene lógica de negocio ni decide la intenci�
 ## Errores esperados
 | Error | Cuándo ocurre | Cómo se traduce al usuario/log |
 |---|---|---|
-| `PromptNotFound` | No existe plantilla para la operación/tenant | Fallback a la base + log warn |
-| `PromptVersionCorrupt` | La versión pedida no es válida o está vacía | Fallback a la base + log error |
-| `PromptServiceUnavailable` | Prompt Management no responde | Fallback a la base + log error |
+| `TenantProfileNotFoundError` | El comercio no existe en la consola | HTTP 404 `tenant_profile_not_found` |
+| `PromptOverrideInvalidError` | Prompt vacío, demasiado largo o base ausente | HTTP 400 `prompt_override_invalid` |
+| `ValidationError` | JSON local corrupto o perfil fuera de esquema | HTTP 400 sin detalle interno |
+| `PromptNotFound` | No existe plantilla para la operación/tenant | Fallback a la base + log warn (Fase B) |
+| `PromptVersionCorrupt` | La versión pedida no es válida o está vacía | Fallback a la base + log error (Fase B) |
+| `PromptServiceUnavailable` | Prompt Management no responde | Fallback a la base + log error (Fase B) |
 
 ## Cómo probarlo
-- `tests/unit/`: fallback a la plantilla base, cache por versión y rollback con pin de
-  versión.
-- `tests/contract/`: el system prompt de un tenant nunca incluye prompts de otro tenant
-  ni fragmentos de `prompts/tenants/` ajenos.
-- `tests/agent_evals/datasets/`: operación sin personalización → se responde con la
-  plantilla base y el tono del comercio sigue siendo correcto.
+- `tests/unit/test_console_config.py` (Fase A, hecho): siembra, actualización parcial,
+  persistencia, override/reset, prompt vacío o largo, tenant desconocido, JSON corrupto
+  y aislamiento entre comercios.
+- `tests/unit/test_console_runtime.py`: el override llega al `system` del nodo y el
+  saludo usa el nombre comercial.
+- `tests/unit/test_console_api.py`: contrato HTTP de perfil y prompts.
+- `tests/contract/` (Fase B): el system prompt de un tenant nunca incluye prompts de
+  otro tenant ni fragmentos de `prompts/tenants/` ajenos.
+- `tests/agent_evals/datasets/` (Fase B): operación sin personalización → plantilla base
+  y tono del comercio correcto.

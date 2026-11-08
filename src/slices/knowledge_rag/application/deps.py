@@ -19,7 +19,10 @@ class Deps:
         llm: Modelo de redacción (`BedrockLLM` en producción, doble en tests);
             solo se invoca cuando hay evidencia (el fallback no pasa por el LLM).
         tools: Tool `search_knowledge` con embeddings y almacén ya cableados.
+        system_prompt: Override del prompt base de FAQ (Fase A de la consola);
+            `None` carga `prompts/base/faq.md` como hasta ahora.
     """
 
     llm: LLMPort
     tools: KnowledgeTools
+    system_prompt: str | None = None

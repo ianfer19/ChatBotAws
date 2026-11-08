@@ -130,7 +130,7 @@ def classify(state: SupervisorState, *, deps: Deps) -> SupervisorState:
             details={"correlation_id": mensaje.correlation_id},
         )
     system = (
-        f"{load_system_prompt()}\n\n{TAREA_CLASIFICAR}\n\n"
+        f"{deps.system_prompt or load_system_prompt()}\n\n{TAREA_CLASIFICAR}\n\n"
         f"{contexto_para_prompt(state['context'])}"
     )
     mensajes = [*state["history"], LLMMessage(role="user", content=mensaje.text or "")]

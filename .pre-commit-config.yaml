@@ -36,3 +36,8 @@ repos:
         language: system
         pass_filenames: false
         files: '^(src)/'
+      - id: gitleaks
+        name: secretos (gitleaks)
+        entry: gitleaks git --pre-commit --redact --staged --verbose --config .gitleaks.toml
+        language: system
+        pass_filenames: false

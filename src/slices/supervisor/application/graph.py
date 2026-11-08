@@ -62,6 +62,8 @@ def build_supervisor_graph(
     confirmer: ConfirmerPort | None = None,
     history_window_size: int = 10,
     checkpointer: BaseCheckpointSaver[str] | None = None,
+    tenant_name: str | None = None,
+    system_prompt: str | None = None,
 ) -> CompiledStateGraph[SupervisorState, Any, Any, Any]:  # pyrefly: ignore[bad-specialization]
     """Construye y compila el grafo del supervisor con las dependencias del entorno.
 
@@ -85,6 +87,10 @@ def build_supervisor_graph(
             `PortCheckpointSaver` sobre `MemoryStorePort`). `None` deja el grafo
             sin memoria (retrocompatible: el llamador pasa `history` en cada
             turno, como el REPL de hoy).
+        tenant_name: Nombre comercial con el que responde el saludo (Fase A de la
+            consola); `None` usa el `tenant_id` como hasta ahora.
+        system_prompt: Override del prompt base del supervisor (Fase A de la
+            consola); `None` carga `prompts/base/supervisor.md`.
 
     Returns:
         Grafo compilado, listo para `invoke` con un estado inicial `SupervisorState`
@@ -105,6 +111,8 @@ def build_supervisor_graph(
         draft_store=draft_store,
         confirmer=confirmer,
         history_window_size=history_window_size,
+        tenant_name=tenant_name,
+        system_prompt=system_prompt,
     )
     graph = StateGraph(SupervisorState)  # pyrefly: ignore[bad-specialization]
     graph.add_node("load_context", partial(load_context, deps=deps))
@@ -112,7 +120,7 @@ def build_supervisor_graph(
     graph.add_node("resolve_pending", partial(resolve_pending, deps=deps))
     graph.add_node("classify", partial(classify, deps=deps))
     graph.add_node("decide", partial(decide, deps=deps))
-    graph.add_node("greet", greet)
+    graph.add_node("greet", partial(greet, deps=deps))
     graph.add_node("route_appointments", partial(route_appointments, deps=deps))
     graph.add_node("route_orders", partial(route_orders, deps=deps))
     graph.add_node("route_faq", partial(route_faq, deps=deps))

@@ -47,3 +47,10 @@ scratch/
 
 # Zips de Lambda (construidos; artifacts/README.md sí se commitea)
 artifacts/*.zip
+
+# Consola local (Fase A): datos editables y build del frontend
+console-data/*
+!console-data/tenants.example.json
+web/node_modules/
+web/dist/
+web/.astro/

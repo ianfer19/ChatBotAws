@@ -13,12 +13,14 @@ gimnasios.
 
 ## Estado
 
-**Fases 1–2 completadas — esqueleto, documentación y kernel `shared`.** Aún no hay
-lógica de negocio. El sistema, su ruta ([docs/ROADMAP.md](docs/ROADMAP.md)) y sus
-decisiones están documentados para humanos e IAs:
+**Pasos 1–8 completados y Paso 9 en curso** (código y documentación listos; falta la
+prueba con tráfico real en dev). Además, la **Fase A de la consola local** ya está
+implementada: chat simulado, perfil de comercio y prompts editables sin AWS.
 
+- **[docs/ROADMAP.md](docs/ROADMAP.md)** — ruta activa de 14 pasos y estado.
 - **[AGENTS.md](AGENTS.md)** — fuente única de verdad para cualquier IA que trabaje aquí.
 - **[docs/architecture/OVERVIEW.md](docs/architecture/OVERVIEW.md)** — visión general.
+- **[docs/architecture/CONSOLE.md](docs/architecture/CONSOLE.md)** — consola local.
 - **[docs/adr/README.md](docs/adr/README.md)** — decisiones arquitectónicas ya tomadas.
 
 ## Estructura
@@ -31,6 +33,7 @@ src/
   slices/     11 slices verticales (domain/application/infrastructure/handler)
 infra/    módulos Terraform + envs dev/staging/prod
 prompts/  espejo local de Bedrock Prompt Management (base/ y tenants/)
+web/      consola local (Astro + islas de React, Fase A)
 tests/    unit, integration, contract, agent_evals
 ```
 
@@ -49,6 +52,24 @@ lint-imports
 # Linux/macOS
 make install && make verify
 ```
+
+## Consola local (Fase A)
+
+Interfaz para conversar con el agente y editar por comercio el nombre, los bots y los
+prompts, sin desplegar nada. Usa el mismo grafo que el REPL y, por defecto, un simulador
+si no hay credenciales de AWS.
+
+```powershell
+# Terminal 1: API
+python -m uvicorn handlers.console_api:app --app-dir src --reload --port 8000
+
+# Terminal 2: interfaz
+cd web
+npm install
+npm run dev
+```
+
+Abre `http://localhost:5173`. Guía completa: [docs/architecture/CONSOLE.md](docs/architecture/CONSOLE.md).
 
 ## Convenciones
 

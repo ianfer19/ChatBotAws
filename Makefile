@@ -1,7 +1,8 @@
 # Atajos locales. En CI los mismos pasos viven en .github/workflows/.
 # Equivalencias en Windows (PowerShell) en AGENTS.md -> "Comandos".
 
-.PHONY: install lint fmt typecheck test verify-deps verify tf-fmt tf-validate
+.PHONY: install lint fmt typecheck test verify-deps verify tf-fmt tf-validate \
+	console-api console-web web-verify
 
 install:
 	pip install -e ".[dev]"
@@ -25,6 +26,16 @@ verify-deps:
 	lint-imports
 
 verify: lint typecheck test verify-deps
+
+# Consola local (Fase A): API y frontend en terminales separadas.
+console-api:
+	python -m uvicorn handlers.console_api:app --app-dir src --reload --port 8000
+
+console-web:
+	cd web && npm run dev
+
+web-verify:
+	cd web && npm run check && npm run build
 
 tf-fmt:
 	terraform fmt -check -recursive infra

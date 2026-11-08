@@ -66,7 +66,7 @@ fuente de verdad: la disponibilidad, los precios y el estado salen de tools vali
 
 | Slice | Motivo | Se decide |
 |---|---|---|
-| `tenant_prompts` | Los prompts se usan desde `prompts/` locales mientras no hay Prompt Management | Antes del Paso 13 si hace falta versionado por tenant |
+| `tenant_prompts` | La **Fase A de la consola local** ya implementó perfil y overrides con JSON local; falta la versión Bedrock Prompt Management + DynamoDB (Fase B) | Antes del Paso 13 si hace falta versionado por tenant |
 | `sentiment_handoff` | No bloquea el agente de citas ni el RAG | Tras el Paso 14 |
 | `abuse_protection` | Sin tráfico real de WhatsApp hasta el Paso 9 | Tras el Paso 14 |
 | `media_handling` | El grafo de citas trabaja solo con texto al inicio | Tras el Paso 14 |

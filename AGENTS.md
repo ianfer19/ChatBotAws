@@ -71,6 +71,11 @@ activa es [docs/ROADMAP.md](docs/ROADMAP.md)
 │   ├── base/                  #   plantillas canónicas compartidas
 │   └── tenants/<tenant_id>/   #   personalización por comercio (usar _example/)
 │
+├── web/                       # Consola local (Astro + islas React, Fase A)
+│   └── src/components/        #   chat, traza, perfil y editor de prompts
+│
+├── console-data/              # Datos locales de la consola (gitignored; ejemplo versionado)
+│
 ├── tests/
 │   ├── unit/                  # Unidades + test de estructura del repo
 │   ├── integration/           # Contra servicios reales/localstack
@@ -282,7 +287,7 @@ Un trabajo está terminado cuando:
 - [ ] Tests: unit del dominio + contract si toca contratos + eval si cambia comportamiento
       del agente.
 - [ ] CI verde: `ruff` + `ruff format --check` + `mypy` + `pytest` + `lint-imports` +
-      `terraform fmt -check`.
+      `terraform fmt -check`. Si se toca `web/`, además `npm run check` + `npm run build`.
 - [ ] `AGENTS.md` del slice afectado actualizado (o creado).
 - [ ] ADR creado si la decisión cambia estructura, datos, seguridad o costo.
 - [ ] Cero secretos; TODOs (`verify`/`decision`) explícitos para lo que no se pudo cerrar.
@@ -312,9 +317,14 @@ de las fases históricas 1–9 a los pasos nuevos).
 | 13 | Observabilidad + seguridad (CloudWatch, Guardrails, runbooks) | pendiente |
 | 14 | Evaluación + optimización de costos (agent evals, pricing) | pendiente |
 
-Fuera de la ruta (`TODO(decision)`): `tenant_prompts`, `sentiment_handoff`,
-`abuse_protection`, `media_handling`, `retention_archiving` — ver ROADMAP §4.
+Fuera de la ruta (`TODO(decision)`): `sentiment_handoff`, `abuse_protection`,
+`media_handling`, `retention_archiving` — ver ROADMAP §4. `tenant_prompts` se implementó
+en la **Fase A de la consola local** (perfil y prompts con JSON local), fuera de los 14
+pasos; su versión Bedrock Prompt Management llega en la Fase B.
 Fases históricas ya completadas: 1 (esqueleto, docs, CI) y 2 (kernel `shared`).
+
+**Herramienta de desarrollo (fuera de la ruta):** consola local en `web/` + FastAPI
+(`src/handlers/console_api.py`); ver [docs/architecture/CONSOLE.md](docs/architecture/CONSOLE.md).
 
 ---
 

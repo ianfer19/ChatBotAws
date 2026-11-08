@@ -1,0 +1,8 @@
+---
+import ConsoleLayout from "../layouts/ConsoleLayout.astro";
+import ConsoleApp from "../components/ConsoleApp.tsx";
+---
+
+<ConsoleLayout>
+  <ConsoleApp client:only="react" />
+</ConsoleLayout>

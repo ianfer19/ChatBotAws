@@ -130,8 +130,10 @@ desde el `correlation_id` afectado.
 ### 7.1 Pre-commit y detección de secretos
 
 - `pre-commit` local con formateo, lint, chequeo de tipos rápido y detección de secretos
-  antes del commit; el mismo bloque se repite en CI para quien lo salte.
-- Herramienta de detección de secretos: **gitleaks** o **GitGuardian** → `TODO(verify)`.
+  antes del commit; el mismo escaneo corre en CI (job `secrets`) para quien lo salte.
+- Herramienta de detección de secretos: **gitleaks** v8.30.1 (versión fijada en CI y en el
+  hook de pre-commit). Configuración en `.gitleaks.toml`: reglas por defecto más una
+  allowlist acotada a los valores sintéticos de los tests.
 - Prohibido commitear: credenciales, `.env` reales, dumps de BD, tokens de Meta, claves KMS,
   transcripts de conversaciones de clientes.
 
@@ -155,8 +157,8 @@ desde el `correlation_id` afectado.
 | Auditoría de dependencias | CVEs por encima del umbral (sección 7.2) | Sí (umbral → `TODO(verify)`) |
 
 El detalle de los flujos vive en `.github/workflows/` (`ci.yml` y `terraform.yml`,
-creados en Fase 1); los checks de secretos y de auditoría de dependencias de esta tabla
-**aún no están** en ellos → `TODO(verify)` (añadir en su paso y nombres exactos de jobs).
+creados en Fase 1). El escaneo de secretos ya está en `ci.yml` (job `secrets`); la
+auditoría de dependencias de esta tabla **aún no está** → `TODO(verify)`.
 
 ## 9. Checklist antes de publicar un slice
 
